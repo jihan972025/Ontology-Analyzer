@@ -10,6 +10,10 @@ Ontology Analyzer parses source code using regex-based AST analysis, builds a de
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 
+<p align="center">
+  <img src="assets/screenshot.png" alt="Ontology Analyzer Screenshot" width="900" />
+</p>
+
 ---
 
 ## Features
