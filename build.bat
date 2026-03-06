@@ -8,18 +8,29 @@ echo.
 cd /d "%~dp0"
 
 :: Step 1: Backend (PyInstaller)
-echo [1/4] Building Backend (PyInstaller)...
+echo [1/5] Building Backend (PyInstaller)...
 pyinstaller main.spec --noconfirm --distpath dist-backend
 if errorlevel 1 (
-    echo [ERROR] PyInstaller build failed!
+    echo [ERROR] PyInstaller backend build failed!
     pause
     exit /b 1
 )
 echo       Backend build complete!
 echo.
 
-:: Step 2: Frontend (Vite)
-echo [2/4] Building Frontend (Vite)...
+:: Step 2: Semgrep (PyInstaller)
+echo [2/5] Building Semgrep (PyInstaller)...
+pyinstaller semgrep.spec --noconfirm --distpath dist-semgrep
+if errorlevel 1 (
+    echo [ERROR] PyInstaller semgrep build failed!
+    pause
+    exit /b 1
+)
+echo       Semgrep build complete!
+echo.
+
+:: Step 3: Frontend (Vite)
+echo [3/5] Building Frontend (Vite)...
 call npx vite build
 if errorlevel 1 (
     echo [ERROR] Vite build failed!
@@ -29,8 +40,8 @@ if errorlevel 1 (
 echo       Frontend build complete!
 echo.
 
-:: Step 3: Electron TypeScript
-echo [3/4] Compiling Electron TypeScript...
+:: Step 4: Electron TypeScript
+echo [4/5] Compiling Electron TypeScript...
 call npx tsc -p tsconfig.electron.json
 if errorlevel 1 (
     echo [ERROR] Electron TypeScript compilation failed!
@@ -40,8 +51,8 @@ if errorlevel 1 (
 echo       Electron compile complete!
 echo.
 
-:: Step 4: Package (electron-builder)
-echo [4/4] Packaging installer (electron-builder)...
+:: Step 5: Package (electron-builder)
+echo [5/5] Packaging installer (electron-builder)...
 call npx electron-builder --win
 if errorlevel 1 (
     echo [ERROR] electron-builder failed!

@@ -441,14 +441,24 @@ _SEMGREP_SEVERITY_MAP = {
 
 def _find_semgrep() -> str:
     """Locate the semgrep binary. Returns the path or raises RuntimeError."""
-    # 1. Check PATH
+    import sys
+
+    # 1. Check bundled semgrep (production: resources/semgrep/semgrep.exe)
+    if getattr(sys, 'frozen', False):
+        # PyInstaller frozen exe — look for sibling semgrep directory
+        backend_dir = os.path.dirname(sys.executable)
+        bundled = os.path.join(backend_dir, "..", "semgrep", "semgrep.exe")
+        bundled = os.path.normpath(bundled)
+        if os.path.isfile(bundled):
+            return bundled
+
+    # 2. Check PATH
     found = shutil.which("semgrep")
     if found:
         return found
 
-    # 2. Windows: check common pip install locations
+    # 3. Windows: check common pip install locations
     if os.name == "nt":
-        import sys
         candidates = []
         # User-level pip install
         local = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Python")

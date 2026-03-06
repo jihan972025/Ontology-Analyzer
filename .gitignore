@@ -3,6 +3,7 @@ vendor/
 dist/
 dist-electron/
 dist-backend/
+dist-semgrep/
 release/
 build/
 __pycache__/

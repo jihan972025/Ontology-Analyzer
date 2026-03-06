@@ -18,6 +18,8 @@ asarUnpack:
 extraResources:
   - from: dist-backend/main/
     to: backend/
+  - from: dist-semgrep/semgrep/
+    to: semgrep/
 
 win:
   target:

@@ -148,11 +148,12 @@ npm run dev
 build.bat
 ```
 
-This runs 4 steps:
+This runs 5 steps:
 1. **PyInstaller** — Bundles Python backend into `dist-backend/main/main.exe`
-2. **Vite** — Builds React frontend into `dist/`
-3. **TypeScript** — Compiles Electron main process into `dist-electron/`
-4. **electron-builder** — Packages everything into NSIS installer
+2. **PyInstaller** — Bundles Semgrep scanner into `dist-semgrep/semgrep/semgrep.exe`
+3. **Vite** — Builds React frontend into `dist/`
+4. **TypeScript** — Compiles Electron main process into `dist-electron/`
+5. **electron-builder** — Packages everything into NSIS installer
 
 ### Individual Steps
 
@@ -160,13 +161,16 @@ This runs 4 steps:
 # Backend only
 pyinstaller main.spec --noconfirm --distpath dist-backend
 
+# Semgrep only
+pyinstaller semgrep.spec --noconfirm --distpath dist-semgrep
+
 # Frontend only
 npx vite build
 
 # Electron TypeScript only
 npx tsc -p tsconfig.electron.json
 
-# Package only (requires steps 1-3 first)
+# Package only (requires steps 1-4 first)
 npx electron-builder --win
 ```
 

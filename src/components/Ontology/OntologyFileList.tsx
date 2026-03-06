@@ -1,4 +1,4 @@
-import { FolderOpen, FileCode, ChevronRight, ChevronDown, Search, ChevronUp, Files } from 'lucide-react'
+import { FolderOpen, FileCode, ChevronRight, ChevronDown, Search, ChevronUp, Files, FilePlus2 } from 'lucide-react'
 import { useState, useMemo, useRef, useEffect } from 'react'
 
 interface FileEntry {
@@ -11,8 +11,10 @@ interface Props {
   files: FileEntry[]
   loading: boolean
   highlightFile: string | null
+  hasSelectedFiles: boolean
   onSelectFolder: () => void
   onSelectFiles: () => void
+  onAddFiles: () => void
   onHighlightFile: (file: string | null) => void
 }
 
@@ -134,8 +136,10 @@ export default function OntologyFileList({
   files,
   loading,
   highlightFile,
+  hasSelectedFiles,
   onSelectFolder,
   onSelectFiles,
+  onAddFiles,
   onHighlightFile,
 }: Props) {
   const [filter, setFilter] = useState('')
@@ -189,6 +193,15 @@ export default function OntologyFileList({
                 <Files size={13} className="text-blue-400 shrink-0" />
                 <span>Open Files</span>
               </button>
+              {hasSelectedFiles && (
+                <button
+                  onClick={() => { setMenuOpen(false); onAddFiles() }}
+                  className="flex items-center gap-2 w-full px-3 py-2 hover:bg-slate-700 text-xs text-slate-200 transition-colors border-t border-slate-700"
+                >
+                  <FilePlus2 size={13} className="text-green-400 shrink-0" />
+                  <span>Add Files</span>
+                </button>
+              )}
             </div>
           )}
         </div>

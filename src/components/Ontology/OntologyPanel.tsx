@@ -24,6 +24,10 @@ export default function OntologyPanel() {
   const [manualPath, setManualPath] = useState('')
   const [showManualInput, setShowManualInput] = useState(false)
 
+  // Track selected files for "Add Files" support
+  const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([])
+  const [commonDir, setCommonDir] = useState('')
+
   // New feature state
   const [layout, setLayout] = useState<LayoutMode>('force')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -196,10 +200,25 @@ export default function OntologyPanel() {
     }
   }, [])
 
+  const computeCommonDir = useCallback((filePaths: string[]) => {
+    const normalized = filePaths.map(f => f.replace(/\\/g, '/'))
+    const parts = normalized[0].split('/')
+    let cp = parts.slice(0, -1)
+    for (const fp of normalized.slice(1)) {
+      const fpParts = fp.split('/')
+      let i = 0
+      while (i < cp.length && i < fpParts.length && cp[i] === fpParts[i]) i++
+      cp = cp.slice(0, i)
+    }
+    return cp.join('/')
+  }, [])
+
   const handleSelectFolder = useCallback(async () => {
     try {
       const folder = await window.electronAPI.selectFolder()
       if (!folder) return
+      setSelectedFilePaths([])
+      setCommonDir('')
       await loadFolder(folder)
     } catch (err: any) {
       setShowManualInput(true)
@@ -210,22 +229,29 @@ export default function OntologyPanel() {
     try {
       const files = await window.electronAPI.selectFiles()
       if (!files || files.length === 0) return
-      // Compute common parent directory
-      const normalized = files.map(f => f.replace(/\\/g, '/'))
-      const parts = normalized[0].split('/')
-      let commonParts = parts.slice(0, -1) // start with first file's directory
-      for (const fp of normalized.slice(1)) {
-        const fpParts = fp.split('/')
-        let i = 0
-        while (i < commonParts.length && i < fpParts.length && commonParts[i] === fpParts[i]) i++
-        commonParts = commonParts.slice(0, i)
-      }
-      const commonDir = commonParts.join('/')
-      await loadFolder(commonDir, files)
+      const dir = computeCommonDir(files)
+      setSelectedFilePaths(files)
+      setCommonDir(dir)
+      await loadFolder(dir, files)
     } catch (err: any) {
       setShowManualInput(true)
     }
-  }, [loadFolder])
+  }, [loadFolder, computeCommonDir])
+
+  const handleAddFiles = useCallback(async () => {
+    try {
+      const newFiles = await window.electronAPI.selectFiles()
+      if (!newFiles || newFiles.length === 0) return
+      // Merge with existing, deduplicate
+      const merged = [...new Set([...selectedFilePaths, ...newFiles])]
+      const dir = computeCommonDir(merged)
+      setSelectedFilePaths(merged)
+      setCommonDir(dir)
+      await loadFolder(dir, merged)
+    } catch (err: any) {
+      setShowManualInput(true)
+    }
+  }, [loadFolder, selectedFilePaths, computeCommonDir])
 
   const handleManualSubmit = useCallback(async () => {
     const folder = manualPath.trim()
@@ -288,8 +314,10 @@ export default function OntologyPanel() {
           files={files}
           loading={loading}
           highlightFile={highlightFile}
+          hasSelectedFiles={selectedFilePaths.length > 0}
           onSelectFolder={handleSelectFolder}
           onSelectFiles={handleSelectFiles}
+          onAddFiles={handleAddFiles}
           onHighlightFile={handleHighlightFile}
         />
         {showManualInput && (
