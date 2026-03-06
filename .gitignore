@@ -1,0 +1,16 @@
+node_modules/
+vendor/
+dist/
+dist-electron/
+dist-backend/
+release/
+build/
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.DS_Store
+Thumbs.db
+*.exe
+util/
