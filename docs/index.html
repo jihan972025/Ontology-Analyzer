@@ -217,8 +217,8 @@
 
   <div class="nav-group">
     <div class="nav-group-title">LLM Integration</div>
-    <a class="nav-link" href="#llm-chat">LLM Chat</a>
     <a class="nav-link" href="#llm-providers">Providers</a>
+    <a class="nav-link" href="#llm-chat">LLM Chat</a>
   </div>
 
   <div class="nav-group">
@@ -733,26 +733,6 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <hr class="divider" />
 
-  <!-- ──── LLM Chat ──── -->
-  <div class="section" id="llm-chat">
-    <h2><span class="section-icon">&#x1F916;</span>LLM Chat</h2>
-    <p>
-      Chat with AI using code analysis results as context.
-      Click the Chat icon to open the chat panel, which automatically includes graph summaries, selected node details, and vulnerability information.
-    </p>
-    <img src="b8.png" alt="LLM Chat Panel" class="doc-img-center" style="max-width: 400px;" />
-
-    <h3>Usage</h3>
-    <ol>
-      <li>Click the Chat icon to open the chat panel</li>
-      <li>Configure the LLM provider via the Settings icon</li>
-      <li>Ask questions about code structure, dependencies, and security issues</li>
-      <li>View real-time output via streaming responses</li>
-    </ol>
-  </div>
-
-  <hr class="divider" />
-
   <!-- ──── LLM Providers ──── -->
   <div class="section" id="llm-providers">
     <h2><span class="section-icon">&#x2699;</span>LLM Providers</h2>
@@ -771,6 +751,26 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
     <img src="b7.png" alt="LLM Settings Panel" class="doc-img" style="max-width: 100%;" />
 
     <div class="note">LLM chat requires network access to the API endpoint. Using Ollama enables LLM chat even in fully offline environments.</div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── LLM Chat ──── -->
+  <div class="section" id="llm-chat">
+    <h2><span class="section-icon">&#x1F916;</span>LLM Chat</h2>
+    <p>
+      Chat with AI using code analysis results as context.
+      Click the Chat icon to open the chat panel, which automatically includes graph summaries, selected node details, and vulnerability information.
+    </p>
+    <img src="b8.png" alt="LLM Chat Panel" class="doc-img-center" style="max-width: 400px;" />
+
+    <h3>Usage</h3>
+    <ol>
+      <li>Click the Chat icon to open the chat panel</li>
+      <li>Configure the LLM provider via the Settings icon</li>
+      <li>Ask questions about code structure, dependencies, and security issues</li>
+      <li>View real-time output via streaming responses</li>
+    </ol>
   </div>
 
   <hr class="divider" />
