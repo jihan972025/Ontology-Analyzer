@@ -456,23 +456,6 @@ data: [DONE]
 
 ---
 
-## Changelog
-
-### v1.0.3
-- Bundle all Python dependencies (Semgrep, LLM SDKs) in installer for fully offline use
-- No separate `pip install` required -- security scanner and LLM integration work out of the box
-- Add LLM chat integration (OpenAI, Anthropic, Google Gemini, Ollama)
-- Add Mermaid diagram export (Class Diagram, Flowchart, Sequence Diagram)
-
-### v1.0.2
-- Bundle Semgrep for offline use
-- Add multi-file selection (Open Files)
-
-### v1.0.1
-- Add multi-file selection support
-
----
-
 ## License
 
 MIT
