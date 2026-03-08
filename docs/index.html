@@ -240,7 +240,7 @@
 
   <!-- ──── Introduction ──── -->
   <div class="section" id="introduction">
-    <h1><span class="icon">&#x1F52C;</span>Ontology Analyzer</h1>
+    <h1>Ontology Analyzer</h1>
     <p class="subtitle">AST-based code structure visualization, security scanning & LLM-assisted analysis</p>
     <p>
       Ontology Analyzer is a desktop tool for visually analyzing relationships between classes, methods, and functions in source code.
@@ -258,7 +258,7 @@
 
   <!-- ──── Supported Languages ──── -->
   <div class="section" id="supported-languages">
-    <h2><span class="section-icon">&#x1F310;</span>Supported Languages</h2>
+    <h2>Supported Languages</h2>
     <table>
       <thead>
         <tr><th>Language</th><th>Extensions</th><th>Parsing Scope</th></tr>
@@ -277,7 +277,7 @@
 
   <!-- ──── Architecture ──── -->
   <div class="section" id="architecture">
-    <h2><span class="section-icon">&#x1F3D7;</span>Architecture</h2>
+    <h2>Architecture</h2>
     <div class="code-block">Electron (Main Process)
     |-- IPC: select-folder, select-files
     v
@@ -299,7 +299,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Opening & Adding Files ──── -->
   <div class="section" id="file-input">
-    <h2><span class="section-icon">&#x1F4C2;</span>Opening &amp; Adding Files</h2>
+    <h2>Opening &amp; Adding Files</h2>
     <p>Ontology Analyzer provides three ways to load source code for analysis:</p>
 
     <h3>Open Folder</h3>
@@ -334,7 +334,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Circular Dependency Detection ──── -->
   <div class="section" id="circular-deps">
-    <h2><span class="section-icon">&#x1F534;</span>Circular Dependency Detection</h2>
+    <h2>Circular Dependency Detection</h2>
     <p>
       Automatically detects circular import/call relationships using a DFS back-edge algorithm.
       When a circular reference is found, the edge is highlighted as a <strong class="text-red">red dashed line</strong>,
@@ -362,7 +362,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Dead Code Detection ──── -->
   <div class="section" id="dead-code">
-    <h2><span class="section-icon">&#x1F47B;</span>Dead Code Detection</h2>
+    <h2>Dead Code Detection</h2>
     <p>
       Detects methods and functions that are never called or referenced anywhere.
       Nodes with a Fan-in (incoming call count) of 0 are classified as dead code and displayed with
@@ -381,7 +381,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Impact Analysis ──── -->
   <div class="section" id="impact-analysis">
-    <h2><span class="section-icon">&#x26A1;</span>Impact Analysis</h2>
+    <h2>Impact Analysis</h2>
     <p>
       Click any node to highlight all nodes that would be affected by changes, explored via <strong>3-level BFS traversal</strong>.
     </p>
@@ -409,7 +409,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Complexity Metrics ──── -->
   <div class="section" id="complexity">
-    <h2><span class="section-icon">&#x1F4CA;</span>Complexity Metrics</h2>
+    <h2>Complexity Metrics</h2>
 
     <h3>Measured Metrics</h3>
     <table>
@@ -453,7 +453,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Code Suggestions ──── -->
   <div class="section" id="suggestions">
-    <h2><span class="section-icon">&#x1F4A1;</span>Code Suggestions</h2>
+    <h2>Code Suggestions</h2>
     <p>
       After analysis completes, automated suggestions for improving code quality are generated.
       Click the <span class="badge badge-yellow">N tips</span> badge in the top-right corner to open the suggestions panel.
@@ -496,7 +496,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Vulnerability Scanning ──── -->
   <div class="section" id="vulnerability-scan">
-    <h2><span class="section-icon">&#x1F6E1;</span>Vulnerability Scanning (Semgrep)</h2>
+    <h2>Vulnerability Scanning (Semgrep)</h2>
     <p>
       Uses <strong>Semgrep</strong> (an open-source AST-based SAST tool) for code security vulnerability detection.
       Applies bundled custom rules along with thousands of security rules maintained by the Semgrep community.
@@ -516,7 +516,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Severity Mapping ──── -->
   <div class="section" id="severity-mapping">
-    <h2><span class="section-icon">&#x1F3AF;</span>Severity Mapping</h2>
+    <h2>Severity Mapping</h2>
     <table>
       <thead>
         <tr><th>Semgrep Level</th><th>Display Severity</th><th>Description</th></tr>
@@ -533,7 +533,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Detection Categories ──── -->
   <div class="section" id="detection-categories">
-    <h2><span class="section-icon">&#x1F50D;</span>Detection Categories</h2>
+    <h2>Detection Categories</h2>
     <table>
       <thead>
         <tr><th>Category</th><th>Detection Items</th></tr>
@@ -565,7 +565,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Graph Interaction ──── -->
   <div class="section" id="graph-interaction">
-    <h2><span class="section-icon">&#x1F5B1;</span>Graph Interaction</h2>
+    <h2>Graph Interaction</h2>
     <table>
       <thead>
         <tr><th>Action</th><th>Effect</th></tr>
@@ -610,7 +610,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Layout Modes ──── -->
   <div class="section" id="layout-modes">
-    <h2><span class="section-icon">&#x1F4D0;</span>Layout Modes</h2>
+    <h2>Layout Modes</h2>
     <p>Switch between 3 layout modes using the <kbd class="kbd">F</kbd> <kbd class="kbd">T</kbd> <kbd class="kbd">R</kbd> buttons in the bottom-right corner:</p>
     <div class="grid-3">
       <div class="card">
@@ -632,7 +632,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Search ──── -->
   <div class="section" id="search">
-    <h2><span class="section-icon">&#x1F50E;</span>Node Search</h2>
+    <h2>Node Search</h2>
     <p>
       Press <kbd class="kbd">Ctrl+F</kbd> or click the search button in the bottom-right corner to open the search bar.
       Type a class or method name to display matching nodes, and click any result to navigate to that node on the graph.
@@ -643,7 +643,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Minimap ──── -->
   <div class="section" id="minimap">
-    <h2><span class="section-icon">&#x1F5FA;</span>Minimap</h2>
+    <h2>Minimap</h2>
     <p>
       A miniaturized view of the entire graph is displayed in the bottom-right corner of the canvas.
       The blue rectangle represents the currently visible area, and you can <strong>drag</strong> it to quickly navigate to a different region.
@@ -655,7 +655,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Code Preview ──── -->
   <div class="section" id="code-preview">
-    <h2><span class="section-icon">&#x1F4BB;</span>Code Preview</h2>
+    <h2>Code Preview</h2>
     <p>
       Hover over a node to display a tooltip showing a portion of the method/function source code.
       The preview includes the file name, line number, and 5 lines of surrounding code context.
@@ -666,7 +666,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Inheritance Tree ──── -->
   <div class="section" id="inheritance-tree">
-    <h2><span class="section-icon">&#x1F333;</span>Inheritance Tree</h2>
+    <h2>Inheritance Tree</h2>
     <p>
       Click the GitBranch button in the bottom-right corner to filter only <strong>extends/implements</strong> relationships
       and visualize the class hierarchy. Only nodes involved in inheritance relationships are displayed.
@@ -677,7 +677,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Method Trace ──── -->
   <div class="section" id="method-trace">
-    <h2><span class="section-icon">&#x1F517;</span>Method Trace</h2>
+    <h2>Method Trace</h2>
     <p>
       Click the Route button in the bottom-right corner to enter a method name and trace its <strong>bidirectional call chain</strong>.
       Recursively explores callers and callees centered on the selected method.
@@ -691,7 +691,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── Mermaid Diagrams ──── -->
   <div class="section" id="mermaid-diagrams">
-    <h2><span class="section-icon">&#x1F4C8;</span>Mermaid Diagrams</h2>
+    <h2>Mermaid Diagrams</h2>
     <p>Export analyzed code structures as 3 types of diagrams.</p>
 
     <div class="grid-3">
@@ -736,7 +736,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── PNG Export ──── -->
   <div class="section" id="png-export">
-    <h2><span class="section-icon">&#x1F4F7;</span>PNG Export</h2>
+    <h2>PNG Export</h2>
     <p>
       Click the download button in the bottom-right corner to save the current graph as a PNG image.
       The graph is exported exactly as rendered on the canvas.
@@ -747,7 +747,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── LLM Providers ──── -->
   <div class="section" id="llm-providers">
-    <h2><span class="section-icon">&#x2699;</span>LLM Providers</h2>
+    <h2>LLM Providers</h2>
     <table>
       <thead>
         <tr><th>Provider</th><th>API Format</th><th>Example Model</th><th>Note</th></tr>
@@ -769,7 +769,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── LLM Chat ──── -->
   <div class="section" id="llm-chat">
-    <h2><span class="section-icon">&#x1F916;</span>LLM Chat</h2>
+    <h2>LLM Chat</h2>
     <p>
       Chat with AI using code analysis results as context.
       Click the Chat icon to open the chat panel, which automatically includes graph summaries, selected node details, and vulnerability information.
@@ -810,7 +810,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── API Endpoints ──── -->
   <div class="section" id="api-endpoints">
-    <h2><span class="section-icon">&#x1F310;</span>API Endpoints</h2>
+    <h2>API Endpoints</h2>
     <table>
       <thead>
         <tr><th>Method</th><th>Path</th><th>Description</th></tr>
@@ -830,7 +830,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── POST /analyze ──── -->
   <div class="section" id="api-analyze">
-    <h2><span class="section-icon">&#x1F4E1;</span>POST /api/ontology/analyze</h2>
+    <h2>POST /api/ontology/analyze</h2>
     <p>Analyzes source code and returns nodes, edges, and vulnerability information.</p>
 
     <h3>Request</h3>
@@ -883,7 +883,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <!-- ──── POST /chat ──── -->
   <div class="section" id="api-chat">
-    <h2><span class="section-icon">&#x1F4AC;</span>POST /api/chat</h2>
+    <h2>POST /api/chat</h2>
     <p>Chat with an LLM including code analysis context. Returns Server-Sent Events (SSE) streaming responses.</p>
 
     <h3>Request</h3>
