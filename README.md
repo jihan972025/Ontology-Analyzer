@@ -1,14 +1,22 @@
-# Ontology Analyzer
+<p align="center">
+  <img src="img/logo.png" alt="Ontology Analyzer Logo" width="120" />
+</p>
 
-**AST-based code structure visualization, security scanning & LLM-assisted analysis desktop application**
+<h1 align="center">Ontology Analyzer</h1>
+
+<p align="center">
+  <b>AST-based code structure visualization, security scanning & LLM-assisted analysis desktop application</b>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Electron-31-47848F?logo=electron&logoColor=white" alt="Electron" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white" alt="React" />
+  <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python" />
+</p>
 
 Ontology Analyzer parses source code using regex-based AST analysis, builds a dependency graph, and renders it as an interactive force-directed visualization. It detects circular dependencies, dead code, and security vulnerabilities. Includes Mermaid diagram export (Class / Flowchart / Sequence) and LLM chat integration — all in a native Electron desktop app.
-
-![Electron](https://img.shields.io/badge/Electron-31-47848F?logo=electron&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 
 <p align="center">
   <img src="assets/screenshot.png" alt="Ontology Analyzer Screenshot" width="900" />
