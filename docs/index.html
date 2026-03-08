@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ontology Analyzer Documentation</title>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    background: #0b0f1a; color: #cbd5e1; line-height: 1.7; font-size: 14px;
+  }
+  a { color: #a78bfa; text-decoration: none; }
+  a:hover { color: #c4b5fd; text-decoration: underline; }
+  code {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    background: #1e293b; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; color: #f0abfc;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td { text-align: left; padding: 8px 12px; border: 1px solid #1e293b; font-size: 13px; }
+  th { background: #151d2e; color: #94a3b8; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  td { color: #cbd5e1; }
+  tbody tr:hover { background: #151d2e; }
+
+  /* ── Layout ── */
+  .page { display: flex; min-height: 100vh; }
+
+  /* Left sidebar */
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 260px;
+    background: #0f1420; border-right: 1px solid #1e293b;
+    overflow-y: auto; padding: 24px 0; z-index: 100;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  .sidebar-logo { display: flex; align-items: center; gap: 10px; padding: 0 20px; margin-bottom: 28px; }
+  .sidebar-logo img { width: 28px; height: 28px; }
+  .sidebar-logo span { font-size: 14px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.02em; }
+  .sidebar-logo .ver { font-size: 11px; color: #64748b; font-weight: 400; margin-left: 4px; }
+  .nav-group { margin-bottom: 20px; }
+  .nav-group-title {
+    padding: 0 20px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #64748b; margin-bottom: 6px;
+  }
+  .nav-link {
+    display: block; padding: 5px 20px 5px 28px; font-size: 13px; color: #94a3b8;
+    transition: all 0.15s; border-left: 2px solid transparent;
+  }
+  .nav-link:hover { color: #e2e8f0; background: #151d2e; text-decoration: none; }
+  .nav-link.active { color: #c4b5fd; border-left-color: #8b5cf6; background: #151d2e; font-weight: 500; }
+
+  /* Main content */
+  .content { flex: 1; margin-left: 260px; margin-right: 200px; max-width: 820px; padding: 40px 48px 80px; }
+
+  /* Right sidebar (On this page) */
+  .toc {
+    position: fixed; top: 0; right: 0; width: 200px; height: 100vh;
+    padding: 40px 16px 40px 0; overflow-y: auto; border-left: 1px solid #1e293b;
+    background: #0b0f1a;
+  }
+  .toc::-webkit-scrollbar { width: 3px; }
+  .toc::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  .toc-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #64748b; margin-bottom: 12px; padding-left: 16px;
+  }
+  .toc-link {
+    display: block; padding: 3px 16px; font-size: 12px; color: #64748b;
+    transition: all 0.15s; border-left: 2px solid transparent;
+  }
+  .toc-link:hover { color: #c4b5fd; text-decoration: none; }
+  .toc-link.active { color: #c4b5fd; border-left-color: #8b5cf6; }
+  .toc-link.sub { padding-left: 28px; font-size: 11.5px; }
+
+  /* ── Content Styles ── */
+  .section { margin-bottom: 48px; scroll-margin-top: 24px; }
+  h1 {
+    font-size: 28px; font-weight: 800; color: #f1f5f9;
+    margin-bottom: 8px; letter-spacing: -0.03em;
+  }
+  h1 .icon { margin-right: 8px; }
+  .subtitle { font-size: 15px; color: #64748b; margin-bottom: 32px; }
+  h2 {
+    font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 16px;
+    padding-bottom: 8px; border-bottom: 1px solid #1e293b; letter-spacing: -0.02em;
+  }
+  h2 .section-icon { margin-right: 8px; }
+  h3 {
+    font-size: 15px; font-weight: 600; color: #e2e8f0; margin: 20px 0 8px;
+  }
+  p { margin-bottom: 10px; }
+  ul, ol { margin: 8px 0 12px 20px; }
+  li { margin-bottom: 4px; }
+  .highlight { color: #f0abfc; font-weight: 600; }
+  .text-red { color: #f87171; }
+  .text-orange { color: #fb923c; }
+  .text-yellow { color: #fbbf24; }
+  .text-green { color: #4ade80; }
+  .text-blue { color: #60a5fa; }
+  .text-purple { color: #c084fc; }
+  .text-slate { color: #94a3b8; }
+  b, strong { color: #e2e8f0; font-weight: 600; }
+
+  .note {
+    background: #1a1f35; border: 1px solid #2e3654; border-radius: 8px;
+    padding: 12px 16px; margin: 12px 0; font-size: 13px;
+  }
+  .note::before { content: 'Note'; display: block; font-weight: 700; color: #a78bfa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+
+  .warning {
+    background: #1f1509; border: 1px solid #44360e; border-radius: 8px;
+    padding: 12px 16px; margin: 12px 0; font-size: 13px;
+  }
+  .warning::before { content: 'Warning'; display: block; font-weight: 700; color: #fbbf24; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+
+  .code-block {
+    background: #0f172a; border: 1px solid #1e293b; border-radius: 8px;
+    padding: 14px 18px; margin: 12px 0; font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12.5px; color: #e2e8f0; overflow-x: auto; white-space: pre; line-height: 1.6;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 12px 0; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin: 8px 0; }
+  .card {
+    background: #151d2e; border: 1px solid #1e293b; border-radius: 8px;
+    padding: 12px; text-align: center;
+  }
+  .card-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .card-desc { font-size: 11px; color: #64748b; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600;
+  }
+  .badge-red { background: #450a0a; color: #fca5a5; }
+  .badge-orange { background: #431407; color: #fdba74; }
+  .badge-yellow { background: #422006; color: #fde68a; }
+  .badge-green { background: #052e16; color: #86efac; }
+  .badge-blue { background: #0c1b3a; color: #93c5fd; }
+  .badge-purple { background: #2e1065; color: #d8b4fe; }
+  .badge-slate { background: #1e293b; color: #94a3b8; }
+
+  .kbd {
+    display: inline-block; background: #1e293b; border: 1px solid #334155;
+    border-radius: 4px; padding: 1px 6px; font-size: 11px; font-family: monospace;
+    color: #e2e8f0; font-weight: 600;
+  }
+
+  .divider { border: 0; border-top: 1px solid #1e293b; margin: 32px 0; }
+
+  /* ── Responsive ── */
+  @media (max-width: 1200px) { .toc { display: none; } .content { margin-right: 0; } }
+  @media (max-width: 900px) { .sidebar { display: none; } .content { margin-left: 0; } }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════ LEFT SIDEBAR ════════════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <img src="logo.png" alt="Logo" />
+    <span>Ontology Analyzer <span class="ver">v1.0.3</span></span>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">Getting Started</div>
+    <a class="nav-link active" href="#introduction">Introduction</a>
+    <a class="nav-link" href="#supported-languages">Supported Languages</a>
+    <a class="nav-link" href="#architecture">Architecture</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">Code Analysis</div>
+    <a class="nav-link" href="#circular-deps">Circular Dependency Detection</a>
+    <a class="nav-link" href="#dead-code">Dead Code Detection</a>
+    <a class="nav-link" href="#impact-analysis">Impact Analysis</a>
+    <a class="nav-link" href="#complexity">Complexity Metrics</a>
+    <a class="nav-link" href="#suggestions">Code Suggestions</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">Security</div>
+    <a class="nav-link" href="#vulnerability-scan">Vulnerability Scanning</a>
+    <a class="nav-link" href="#severity-mapping">Severity Mapping</a>
+    <a class="nav-link" href="#detection-categories">Detection Categories</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">Visualization</div>
+    <a class="nav-link" href="#graph-interaction">Graph Interaction</a>
+    <a class="nav-link" href="#layout-modes">Layout Modes</a>
+    <a class="nav-link" href="#search">Node Search</a>
+    <a class="nav-link" href="#minimap">Minimap</a>
+    <a class="nav-link" href="#code-preview">Code Preview</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">Tools</div>
+    <a class="nav-link" href="#inheritance-tree">Inheritance Tree</a>
+    <a class="nav-link" href="#method-trace">Method Trace</a>
+    <a class="nav-link" href="#mermaid-diagrams">Mermaid Diagrams</a>
+    <a class="nav-link" href="#png-export">PNG Export</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">LLM Integration</div>
+    <a class="nav-link" href="#llm-chat">LLM Chat</a>
+    <a class="nav-link" href="#llm-providers">Providers</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-title">API Reference</div>
+    <a class="nav-link" href="#api-endpoints">Endpoints</a>
+    <a class="nav-link" href="#api-analyze">POST /analyze</a>
+    <a class="nav-link" href="#api-chat">POST /chat</a>
+  </div>
+</nav>
+
+<!-- ════════════════════ RIGHT TOC ════════════════════ -->
+<aside class="toc" id="toc-container">
+  <div class="toc-title">On this page</div>
+  <!-- Populated by JS -->
+</aside>
+
+<!-- ════════════════════ MAIN CONTENT ════════════════════ -->
+<main class="content">
+
+  <!-- ──── Introduction ──── -->
+  <div class="section" id="introduction">
+    <h1><span class="icon">&#x1F52C;</span>Ontology Analyzer</h1>
+    <p class="subtitle">AST-based code structure visualization, security scanning & LLM-assisted analysis</p>
+    <p>
+      Ontology Analyzer는 소스 코드의 클래스, 메소드, 함수 간 관계를 시각적으로 분석하는 데스크톱 도구입니다.
+      폴더를 선택하면 코드를 파싱하여 호출 관계, 상속 구조, import 의존성을 그래프로 렌더링합니다.
+    </p>
+    <p>
+      Electron + React 프론트엔드와 Python FastAPI 백엔드로 구성되며, 모든 의존성이 번들되어 <strong>오프라인 환경에서도 설치 즉시 사용 가능</strong>합니다.
+    </p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Supported Languages ──── -->
+  <div class="section" id="supported-languages">
+    <h2><span class="section-icon">&#x1F310;</span>Supported Languages</h2>
+    <table>
+      <thead>
+        <tr><th>Language</th><th>Extensions</th><th>Parsing Scope</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Java</strong></td><td><code>.java</code></td><td>Classes, interfaces, methods, inheritance, call graph</td></tr>
+        <tr><td><strong>Python</strong></td><td><code>.py</code></td><td>Modules, classes, functions, imports</td></tr>
+        <tr><td><strong>TypeScript / JavaScript</strong></td><td><code>.ts</code> <code>.tsx</code> <code>.js</code> <code>.jsx</code> <code>.mjs</code></td><td>Modules, classes, functions, imports</td></tr>
+        <tr><td><strong>Go</strong></td><td><code>.go</code></td><td>Functions, imports</td></tr>
+        <tr><td><strong>C / C++</strong></td><td><code>.c</code> <code>.cpp</code> <code>.cc</code> <code>.h</code> <code>.hpp</code></td><td>Functions, includes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Architecture ──── -->
+  <div class="section" id="architecture">
+    <h2><span class="section-icon">&#x1F3D7;</span>Architecture</h2>
+    <div class="code-block">Electron (Main Process)
+    |-- IPC: select-folder, select-files
+    v
+React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766)
+    |                                        |
+    |-- OntologyPanel                        |-- /api/ontology/analyze
+    |-- OntologyGraph                        |-- /api/ontology/list-files
+    |-- OntologyProperties                   |-- /api/ontology/code-preview
+    |-- ChatPanel                            |-- /api/chat
+    |                                        |-- /api/chat/test
+    Vite + Tailwind CSS                      |-- /api/health
+                                             |
+                                             Parsers: Java, Python, TS/JS, Go, C/C++
+                                             Semgrep Integration
+                                             LLM: OpenAI, Anthropic, Gemini</div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Circular Dependency Detection ──── -->
+  <div class="section" id="circular-deps">
+    <h2><span class="section-icon">&#x1F534;</span>Circular Dependency Detection</h2>
+    <p>
+      순환 import/호출 관계를 DFS back-edge 알고리즘으로 자동 감지합니다.
+      순환 참조가 발견되면 해당 엣지가 <strong class="text-red">빨간색 점선</strong>으로 하이라이트되고,
+      관련 노드 사이의 연결선이 강조 표시됩니다.
+    </p>
+    <p>
+      우측 상단의 <span class="badge badge-red">N cycles</span> 배지를 클릭하면 순환 참조 노드를 순차적으로 탐색할 수 있습니다.
+      노드 클릭 시 우측 속성창에 Cycle Path(순환 경로)가 BFS 기반으로 표시됩니다.
+    </p>
+
+    <h3>순환 참조의 문제점</h3>
+    <ul>
+      <li>무한 루프 위험</li>
+      <li>단위 테스트 어려움</li>
+      <li>변경 영향 확산 (ripple effect)</li>
+      <li>빌드 순서 문제</li>
+      <li>코드 가독성 저하 및 재사용성 감소</li>
+    </ul>
+
+    <div class="note">순환 참조 해결 방법: 인터페이스 추출(Dependency Inversion), 중재자 패턴(Mediator), 이벤트 기반 분리 등을 검토하세요.</div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Dead Code Detection ──── -->
+  <div class="section" id="dead-code">
+    <h2><span class="section-icon">&#x1F47B;</span>Dead Code Detection</h2>
+    <p>
+      어디에서도 호출/참조되지 않는 메소드/함수를 탐지합니다.
+      Fan-in(incoming 호출 수)이 0인 노드를 데드 코드로 판정하여
+      <strong class="text-slate">회색, 점선 테두리, 낮은 불투명도</strong>로 표시합니다.
+    </p>
+    <p>
+      우측 상단의 <span class="badge badge-slate">N dead</span> 배지를 클릭하면 데드 코드 노드를 순차 탐색합니다.
+    </p>
+
+    <div class="warning">
+      Entry point(main 함수), 이벤트 핸들러, 리플렉션 호출, 외부 API 엔드포인트 등은 실제로 사용되지만 정적 분석에서 데드 코드로 오탐될 수 있습니다.
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Impact Analysis ──── -->
+  <div class="section" id="impact-analysis">
+    <h2><span class="section-icon">&#x26A1;</span>Impact Analysis</h2>
+    <p>
+      특정 노드를 클릭하면 해당 노드 변경 시 영향 받는 노드들을 <strong>BFS 3단계</strong>로 탐색하여 하이라이트합니다.
+    </p>
+
+    <div class="grid-3">
+      <div class="card" style="border-color: #f97316;">
+        <div class="card-title text-orange">1차</div>
+        <div class="card-desc">직접 호출 — 가장 강한 영향</div>
+      </div>
+      <div class="card" style="border-color: #78350f;">
+        <div class="card-title" style="color: #d97706;">2차</div>
+        <div class="card-desc">간접 영향</div>
+      </div>
+      <div class="card" style="border-color: #451a03;">
+        <div class="card-title" style="color: #92400e;">3차</div>
+        <div class="card-desc">파급 영향</div>
+      </div>
+    </div>
+
+    <p>우측 속성창의 Impact Analysis 섹션에서 각 단계별 영향 노드 목록을 확인하고 클릭하여 이동할 수 있습니다.</p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Complexity Metrics ──── -->
+  <div class="section" id="complexity">
+    <h2><span class="section-icon">&#x1F4CA;</span>Complexity Metrics</h2>
+
+    <h3>측정 항목</h3>
+    <table>
+      <thead>
+        <tr><th>Metric</th><th>Description</th><th>Calculation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong class="highlight">Fan-in</strong></td><td>이 노드를 호출하는 수</td><td>Incoming calls/references 엣지 수</td></tr>
+        <tr><td><strong class="highlight">Fan-out</strong></td><td>이 노드가 호출하는 수</td><td>Outgoing calls/references 엣지 수</td></tr>
+        <tr><td><strong class="highlight">Lines</strong></td><td>메소드 본문 라인 수</td><td>{ } 매칭으로 계산</td></tr>
+      </tbody>
+    </table>
+
+    <h3>시각적 반영</h3>
+    <ul>
+      <li><strong>노드 크기</strong> &#8212; 연결 수(connections)에 비례: 연결 많은 노드 &#8594; 큰 원</li>
+      <li><strong>노드 색상</strong> &#8212; Fan-in + Fan-out 합산으로 히트맵:
+        <ul>
+          <li><span class="text-blue">낮음 (0~2)</span> &#8594; 클러스터 기본 색상</li>
+          <li><span class="text-orange">중간 (3~5)</span> &#8594; 주황 블렌딩</li>
+          <li><span class="text-red">높음 (6+)</span> &#8594; 빨간/주황 강조</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3>복잡도가 높은 노드의 문제점</h3>
+    <ul>
+      <li><strong class="text-orange">Fan-in 높음</strong> &#8594; 많은 곳에서 의존 &#8594; 변경 시 영향 범위 큼</li>
+      <li><strong class="text-orange">Fan-out 높음</strong> &#8594; 많은 것에 의존 &#8594; 하나 바뀌면 깨질 가능성 높음</li>
+      <li><strong class="text-orange">Lines 높음</strong> &#8594; 메소드가 너무 김 &#8594; 분리(Extract Method) 검토</li>
+      <li><strong class="text-red">Fan-in + Fan-out 모두 높음</strong> &#8594; "God Method" &#8594; 리팩토링 최우선 대상</li>
+    </ul>
+
+    <div class="note">
+      활용법: 그래프에서 크고 붉은 노드를 찾으면 복잡도 높은 핵심 코드입니다.
+      Fan-out 10 이상이면 책임 분리, Lines 50 이상이면 메소드 분할을 검토하세요.
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Code Suggestions ──── -->
+  <div class="section" id="suggestions">
+    <h2><span class="section-icon">&#x1F4A1;</span>Code Suggestions</h2>
+    <p>
+      분석 완료 후 코드 품질 개선을 위한 자동 제안을 생성합니다.
+      우측 상단의 <span class="badge badge-yellow">N tips</span> 배지를 클릭하면 제안 패널이 열립니다.
+    </p>
+
+    <h3>감지 규칙 (9가지)</h3>
+    <table>
+      <thead>
+        <tr><th>Category</th><th>Detection Condition</th><th>Priority</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong class="text-red">Circular Deps</strong></td><td>순환 참조 edge 연결 컴포넌트</td><td><span class="badge badge-red">High</span></td></tr>
+        <tr><td><strong class="text-red">Security</strong></td><td>Semgrep 취약점 severity별 그룹</td><td><span class="badge badge-red">High~Low</span></td></tr>
+        <tr><td><strong class="text-orange">High Fan-In</strong></td><td>Fan-in &ge; 8 (medium), &ge; 12 (high)</td><td><span class="badge badge-orange">Med~High</span></td></tr>
+        <tr><td><strong class="text-orange">High Fan-Out</strong></td><td>Fan-out &ge; 8 (medium), &ge; 12 (high)</td><td><span class="badge badge-orange">Med~High</span></td></tr>
+        <tr><td><strong class="text-orange">Large Function</strong></td><td>Lines &ge; 40 (medium), &ge; 80 (high)</td><td><span class="badge badge-orange">Med~High</span></td></tr>
+        <tr><td><strong class="text-orange">Hub Node</strong></td><td>Fan-in + Fan-out &ge; 15 (개별 &lt; 8)</td><td><span class="badge badge-orange">Med~High</span></td></tr>
+        <tr><td><strong class="text-yellow">Deep Inheritance</strong></td><td>extends chain depth &ge; 3</td><td><span class="badge badge-yellow">Medium</span></td></tr>
+        <tr><td><strong class="text-yellow">Wide Interface</strong></td><td>Class methods &ge; 10 (med), &ge; 15 (high)</td><td><span class="badge badge-yellow">Med~High</span></td></tr>
+        <tr><td><strong class="text-slate">Dead Code</strong></td><td>호출되지 않는 함수 (파일별 그룹)</td><td><span class="badge badge-slate">Low</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>제안 패널 사용법</h3>
+    <ul>
+      <li><strong>카테고리 필터</strong> &#8212; 상단 탭으로 특정 카테고리만 필터링</li>
+      <li><strong>카드 확장</strong> &#8212; 제안 카드 클릭 시 상세 설명과 관련 노드 목록이 펼쳐집니다</li>
+      <li><strong>노드 이동</strong> &#8212; 관련 노드 클릭 시 해당 노드로 포커스 이동</li>
+      <li><strong>우선순위 색상</strong> &#8212; <span class="text-red">빨강</span> = High, <span class="text-orange">주황</span> = Medium, <span class="text-slate">회색</span> = Low</li>
+    </ul>
+
+    <div class="note">
+      제안은 정적 분석 기반 휴리스틱이므로 프로젝트 특성에 따라 조정이 필요할 수 있습니다.
+      유틸리티 함수의 높은 Fan-in은 정상적일 수 있으며, 테스트 코드의 Dead Code 판정은 오탐일 수 있습니다.
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Vulnerability Scanning ──── -->
+  <div class="section" id="vulnerability-scan">
+    <h2><span class="section-icon">&#x1F6E1;</span>Vulnerability Scanning (Semgrep)</h2>
+    <p>
+      코드 보안 취약점 탐지에 <strong>Semgrep</strong> (오픈소스 AST 기반 SAST 도구)를 사용합니다.
+      번들된 커스텀 룰과 Semgrep 커뮤니티가 관리하는 수천 개의 보안 규칙을 적용합니다.
+    </p>
+    <p>
+      취약점이 있는 노드에는 <strong class="text-red">빨간 점 인디케이터</strong>가 표시됩니다.
+      우측 상단 <span class="badge badge-red">N vulns</span> 배지 클릭으로 취약 노드를 순차 탐색하고,
+      노드 클릭 시 속성창의 Security Issues 섹션에서 상세 내용을 확인합니다.
+    </p>
+
+    <div class="note">
+      패키지 인스톨러에 Semgrep이 번들되어 있어 별도 설치 없이 바로 사용할 수 있습니다.
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Severity Mapping ──── -->
+  <div class="section" id="severity-mapping">
+    <h2><span class="section-icon">&#x1F3AF;</span>Severity Mapping</h2>
+    <table>
+      <thead>
+        <tr><th>Semgrep Level</th><th>Display Severity</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong class="text-red">ERROR</strong></td><td><span class="badge badge-red">Critical</span></td><td>원격 코드 실행(RCE) 또는 데이터 완전 탈취 가능</td></tr>
+        <tr><td><strong class="text-orange">WARNING</strong></td><td><span class="badge badge-orange">High</span></td><td>파일 시스템 접근, 데이터 유출, 보안 우회 가능</td></tr>
+        <tr><td><strong class="text-yellow">INFO</strong></td><td><span class="badge badge-yellow">Medium</span></td><td>보안 약점이나 추가 조건 필요한 취약점</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Detection Categories ──── -->
+  <div class="section" id="detection-categories">
+    <h2><span class="section-icon">&#x1F50D;</span>Detection Categories</h2>
+    <table>
+      <thead>
+        <tr><th>Category</th><th>Detection Items</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong class="text-red">Injection</strong></td><td>SQL Injection, Command Injection, LDAP Injection, XSS, Template Injection</td></tr>
+        <tr><td><strong class="text-orange">Crypto</strong></td><td>Weak Cipher, Hardcoded Keys, Insecure TLS, Insecure Random</td></tr>
+        <tr><td><strong class="text-yellow">Auth</strong></td><td>Hardcoded Credentials, Session Fixation, CSRF Disabled</td></tr>
+        <tr><td><strong class="text-blue">Data Flow</strong></td><td>Path Traversal, SSRF, Open Redirect, Unsafe Deserialization</td></tr>
+        <tr><td><strong class="text-purple">Code Quality</strong></td><td>eval/exec Usage, Prototype Pollution, Race Condition</td></tr>
+      </tbody>
+    </table>
+
+    <h3>지원 언어</h3>
+    <div class="grid-4">
+      <div class="card"><div class="card-title">Java</div></div>
+      <div class="card"><div class="card-title">Python</div></div>
+      <div class="card"><div class="card-title">JS/TS</div></div>
+      <div class="card"><div class="card-title">Go</div></div>
+      <div class="card"><div class="card-title">C/C++</div></div>
+      <div class="card"><div class="card-title">Ruby</div></div>
+      <div class="card"><div class="card-title">Kotlin</div></div>
+      <div class="card"><div class="card-title">PHP</div></div>
+    </div>
+    <p class="text-slate" style="font-size:12px;">AST 기반 분석으로 regex보다 정확한 탐지가 가능합니다. 30+ 언어를 지원합니다.</p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Graph Interaction ──── -->
+  <div class="section" id="graph-interaction">
+    <h2><span class="section-icon">&#x1F5B1;</span>Graph Interaction</h2>
+    <table>
+      <thead>
+        <tr><th>Action</th><th>Effect</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Click node</strong></td><td>Select &#8212; opens Properties panel on the right</td></tr>
+        <tr><td><strong>Hover node</strong></td><td>Shows code preview tooltip after 400ms</td></tr>
+        <tr><td><strong>Drag node</strong></td><td>Repositions node (force layout re-stabilizes)</td></tr>
+        <tr><td><strong>Scroll wheel</strong></td><td>Zoom in/out</td></tr>
+        <tr><td><strong>Click + drag background</strong></td><td>Pan the canvas</td></tr>
+        <tr><td><kbd class="kbd">Ctrl+F</kbd></td><td>Open node search</td></tr>
+        <tr><td><kbd class="kbd">Esc</kbd></td><td>Close search / clear selection</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Layout Modes ──── -->
+  <div class="section" id="layout-modes">
+    <h2><span class="section-icon">&#x1F4D0;</span>Layout Modes</h2>
+    <p>우측 하단의 <kbd class="kbd">F</kbd> <kbd class="kbd">T</kbd> <kbd class="kbd">R</kbd> 버튼으로 3가지 레이아웃을 전환합니다:</p>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-title text-purple">Force (F)</div>
+        <div class="card-desc">물리 시뮬레이션 기반<br/>연결된 노드끼리 가까이 배치</div>
+      </div>
+      <div class="card">
+        <div class="card-title text-blue">Tree (T)</div>
+        <div class="card-desc">좌&#8594;우 트리 구조<br/>호출 깊이 기반 수평 배치</div>
+      </div>
+      <div class="card">
+        <div class="card-title text-green">Radial (R)</div>
+        <div class="card-desc">방사형 레이아웃<br/>중심 노드에서 동심원 배치</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Search ──── -->
+  <div class="section" id="search">
+    <h2><span class="section-icon">&#x1F50E;</span>Node Search</h2>
+    <p>
+      <kbd class="kbd">Ctrl+F</kbd> 또는 우측 하단 검색 버튼을 클릭하면 검색바가 열립니다.
+      클래스명, 메소드명을 입력하면 매칭되는 노드 목록이 표시되고, 클릭 시 해당 노드로 이동합니다.
+    </p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Minimap ──── -->
+  <div class="section" id="minimap">
+    <h2><span class="section-icon">&#x1F5FA;</span>Minimap</h2>
+    <p>
+      캔버스 우하단에 전체 그래프의 축소 뷰가 표시됩니다.
+      파란 사각형이 현재 보이는 영역을 나타내며, <strong>드래그</strong>하여 빠르게 다른 영역으로 이동할 수 있습니다.
+    </p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Code Preview ──── -->
+  <div class="section" id="code-preview">
+    <h2><span class="section-icon">&#x1F4BB;</span>Code Preview</h2>
+    <p>
+      노드 위에 마우스를 올리면 해당 메소드/함수의 소스 코드 일부가 툴팁으로 표시됩니다.
+      파일명, 라인 번호와 함께 전후 5줄의 코드를 미리 볼 수 있습니다.
+    </p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Inheritance Tree ──── -->
+  <div class="section" id="inheritance-tree">
+    <h2><span class="section-icon">&#x1F333;</span>Inheritance Tree</h2>
+    <p>
+      우측 하단 GitBranch 버튼을 클릭하면 <strong>extends/implements</strong> 관계만 필터링하여
+      클래스 계층 구조를 시각화합니다. 상속 관계에 관여하는 노드만 표시됩니다.
+    </p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Method Trace ──── -->
+  <div class="section" id="method-trace">
+    <h2><span class="section-icon">&#x1F517;</span>Method Trace</h2>
+    <p>
+      우측 하단 Route 버튼을 클릭하면 메소드명을 입력하여 <strong>양방향 호출 체인</strong>을 추적합니다.
+      선택한 메소드를 중심으로 호출자(callers)와 피호출자(callees)를 재귀적으로 탐색합니다.
+    </p>
+    <p>
+      트레이스 결과는 전용 레이아웃으로 표시되며, 관련된 노드와 엣지만 <strong class="text-green">초록색</strong>으로 하이라이트됩니다.
+    </p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── Mermaid Diagrams ──── -->
+  <div class="section" id="mermaid-diagrams">
+    <h2><span class="section-icon">&#x1F4C8;</span>Mermaid Diagrams</h2>
+    <p>분석된 코드 구조를 3가지 다이어그램으로 내보낼 수 있습니다.</p>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-title text-purple">Class Diagram</div>
+        <div class="card-desc">클래스/인터페이스 관계<br/>상속, 구현, 메소드</div>
+      </div>
+      <div class="card">
+        <div class="card-title text-blue">Flowchart</div>
+        <div class="card-desc">호출 그래프<br/>메소드/함수/클래스 간 흐름</div>
+      </div>
+      <div class="card">
+        <div class="card-title text-green">Sequence Diagram</div>
+        <div class="card-desc">호출 순서<br/>참여자 간 순차 호출</div>
+      </div>
+    </div>
+
+    <h3>사용법</h3>
+    <ol>
+      <li>우측 하단 Mermaid 버튼 클릭</li>
+      <li>다이어그램 타입 선택: Class / Flowchart / Sequence</li>
+      <li>인터랙티브 프리뷰에서 확대/축소, 검색</li>
+      <li>파일 리스트에서 특정 파일 클릭하여 필터링</li>
+      <li><strong>Copy</strong> 버튼으로 Mermaid 코드 복사</li>
+    </ol>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── PNG Export ──── -->
+  <div class="section" id="png-export">
+    <h2><span class="section-icon">&#x1F4F7;</span>PNG Export</h2>
+    <p>
+      우측 하단 다운로드 버튼을 클릭하면 현재 그래프를 PNG 이미지로 저장합니다.
+      캔버스에 렌더링된 상태 그대로 내보내집니다.
+    </p>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── LLM Chat ──── -->
+  <div class="section" id="llm-chat">
+    <h2><span class="section-icon">&#x1F916;</span>LLM Chat</h2>
+    <p>
+      코드 분석 결과를 컨텍스트로 활용하여 AI와 대화할 수 있습니다.
+      Chat 아이콘을 클릭하면 채팅 패널이 열리며, 그래프 요약, 선택된 노드, 취약점 정보가 자동으로 포함됩니다.
+    </p>
+
+    <h3>사용법</h3>
+    <ol>
+      <li>Chat 아이콘 클릭으로 채팅 패널 열기</li>
+      <li>Settings 아이콘으로 LLM 프로바이더 설정</li>
+      <li>코드 구조, 의존성, 보안 이슈에 대해 질문</li>
+      <li>스트리밍 응답으로 실시간 출력 확인</li>
+    </ol>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── LLM Providers ──── -->
+  <div class="section" id="llm-providers">
+    <h2><span class="section-icon">&#x2699;</span>LLM Providers</h2>
+    <table>
+      <thead>
+        <tr><th>Provider</th><th>API Format</th><th>Example Model</th><th>Note</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>OpenAI</strong></td><td>openai</td><td><code>gpt-4o</code></td><td>API Key required</td></tr>
+        <tr><td><strong>Ollama (Local)</strong></td><td>openai</td><td><code>llama3</code></td><td>Endpoint: <code>http://localhost:11434/v1</code></td></tr>
+        <tr><td><strong>Anthropic</strong></td><td>anthropic</td><td><code>claude-sonnet-4-5-20250514</code></td><td>API Key required</td></tr>
+        <tr><td><strong>Google Gemini</strong></td><td>gemini</td><td><code>gemini-pro</code></td><td>API Key required</td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">LLM 채팅은 API 엔드포인트에 대한 네트워크 접근이 필요합니다. Ollama를 사용하면 완전 오프라인 환경에서도 LLM 채팅을 사용할 수 있습니다.</div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── API Endpoints ──── -->
+  <div class="section" id="api-endpoints">
+    <h2><span class="section-icon">&#x1F310;</span>API Endpoints</h2>
+    <table>
+      <thead>
+        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/health</code></td><td>Health check</td></tr>
+        <tr><td><span class="badge badge-blue">POST</span></td><td><code>/api/ontology/analyze</code></td><td>Analyze code structure + vulnerabilities</td></tr>
+        <tr><td><span class="badge badge-blue">POST</span></td><td><code>/api/ontology/list-files</code></td><td>List supported source files</td></tr>
+        <tr><td><span class="badge badge-blue">POST</span></td><td><code>/api/ontology/code-preview</code></td><td>Get code snippet around a line</td></tr>
+        <tr><td><span class="badge badge-blue">POST</span></td><td><code>/api/chat</code></td><td>Chat with LLM (streaming SSE)</td></tr>
+        <tr><td><span class="badge badge-blue">POST</span></td><td><code>/api/chat/test</code></td><td>Test LLM provider connection</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── POST /analyze ──── -->
+  <div class="section" id="api-analyze">
+    <h2><span class="section-icon">&#x1F4E1;</span>POST /api/ontology/analyze</h2>
+    <p>소스 코드를 분석하여 노드, 엣지, 취약점 정보를 반환합니다.</p>
+
+    <h3>Request</h3>
+    <div class="code-block">{
+  "path": "C:/projects/my-app",
+  "files": null
+}</div>
+
+    <h3>Response</h3>
+    <div class="code-block">{
+  "nodes": [
+    {
+      "id": "class:UserService",
+      "label": "UserService",
+      "type": "class",
+      "file": "src/services/UserService.java",
+      "line": 15,
+      "cluster": 0,
+      "size": 5,
+      "fanIn": 3,
+      "fanOut": 7,
+      "lines": 120,
+      "dead": false,
+      "vulnCount": 1
+    }
+  ],
+  "edges": [
+    {
+      "source": "class:UserService",
+      "target": "class:UserRepository",
+      "type": "calls",
+      "order": 0,
+      "circular": false
+    }
+  ],
+  "vulnerabilities": [
+    {
+      "rule": "sql-injection-format",
+      "severity": "critical",
+      "message": "SQL injection via string formatting",
+      "line": 42,
+      "file": "src/services/UserService.java",
+      "nodeId": "method:UserService.findByName"
+    }
+  ]
+}</div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── POST /chat ──── -->
+  <div class="section" id="api-chat">
+    <h2><span class="section-icon">&#x1F4AC;</span>POST /api/chat</h2>
+    <p>코드 분석 컨텍스트를 포함하여 LLM과 대화합니다. Server-Sent Events(SSE) 스트리밍 응답을 반환합니다.</p>
+
+    <h3>Request</h3>
+    <div class="code-block">{
+  "messages": [
+    { "role": "user", "content": "Explain the circular dependencies" }
+  ],
+  "provider": {
+    "provider_id": "openai",
+    "api_key": "sk-...",
+    "model": "gpt-4o",
+    "endpoint_url": "https://api.openai.com/v1",
+    "api_format": "openai"
+  },
+  "context": {
+    "graphSummary": { "totalNodes": 42, "cycleCount": 3 }
+  },
+  "stream": true
+}</div>
+
+    <h3>Response (SSE Stream)</h3>
+    <div class="code-block">data: {"content": "The circular dependencies..."}
+data: {"content": " involve three nodes..."}
+data: [DONE]</div>
+  </div>
+
+</main>
+
+<!-- ════════════════════ JAVASCRIPT ════════════════════ -->
+<script>
+(function() {
+  // ── Build "On this page" TOC from h2/h3 in content ──
+  const tocContainer = document.getElementById('toc-container');
+  const sections = document.querySelectorAll('.content .section');
+  const headings = document.querySelectorAll('.content h2, .content h3');
+
+  headings.forEach(h => {
+    const a = document.createElement('a');
+    a.className = 'toc-link' + (h.tagName === 'H3' ? ' sub' : '');
+    a.href = '#' + (h.closest('.section')?.id || '');
+    a.textContent = h.textContent.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]+/u, '').trim();
+    if (h.tagName === 'H3') {
+      a.href = '#' + (h.closest('.section')?.id || '');
+    }
+    tocContainer.appendChild(a);
+  });
+
+  // ── Active state on scroll ──
+  const navLinks = document.querySelectorAll('.sidebar .nav-link');
+  const tocLinks = document.querySelectorAll('.toc .toc-link');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(sec => {
+      const rect = sec.getBoundingClientRect();
+      if (rect.top <= 100) current = sec.id;
+    });
+    navLinks.forEach(link => {
+      link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+    });
+    tocLinks.forEach(link => {
+      link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+    });
+  }
+
+  window.addEventListener('scroll', updateActive);
+  updateActive();
+})();
+</script>
+</body>
+</html>

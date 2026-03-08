@@ -20,6 +20,8 @@ extraResources:
     to: backend/
   - from: dist-semgrep/semgrep/
     to: semgrep/
+  - from: docs/
+    to: docs/
 
 win:
   icon: assets/icon.ico

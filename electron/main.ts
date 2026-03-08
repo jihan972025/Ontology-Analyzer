@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron'
 import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
@@ -161,6 +161,18 @@ ipcMain.handle('select-files', async () => {
   })
   if (result.canceled || result.filePaths.length === 0) return null
   return result.filePaths
+})
+
+ipcMain.handle('open-doc', async () => {
+  let docPath: string
+  if (isDev) {
+    docPath = path.join(__dirname, '..', 'docs', 'index.html')
+  } else {
+    docPath = path.join(process.resourcesPath, 'docs', 'index.html')
+  }
+  if (fs.existsSync(docPath)) {
+    shell.openExternal(`file://${docPath.replace(/\\/g, '/')}`)
+  }
 })
 
 // App lifecycle
