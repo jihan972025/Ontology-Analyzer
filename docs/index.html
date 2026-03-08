@@ -151,6 +151,15 @@
 
   .divider { border: 0; border-top: 1px solid #1e293b; margin: 32px 0; }
 
+  .doc-img {
+    margin: 16px 0; border-radius: 8px; border: 1px solid #1e293b;
+    max-width: 100%; display: block;
+  }
+  .doc-img-center {
+    margin: 16px auto; border-radius: 8px; border: 1px solid #1e293b;
+    max-width: 100%; display: block;
+  }
+
   /* ── Responsive ── */
   @media (max-width: 1200px) { .toc { display: none; } .content { margin-right: 0; } }
   @media (max-width: 900px) { .sidebar { display: none; } .content { margin-left: 0; } }
@@ -335,6 +344,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
       Click the <span class="badge badge-red">N cycles</span> badge in the top-right corner to navigate through circular dependency nodes sequentially.
       Clicking a node displays the Cycle Path in the right-side Properties panel, calculated using BFS.
     </p>
+    <img src="b1.png" alt="Circular Dependency - Cycle Path" class="doc-img-center" style="max-width: 340px;" />
 
     <h3>Problems with Circular Dependencies</h3>
     <ul>
@@ -392,6 +402,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
     </div>
 
     <p>View the list of affected nodes at each level in the Impact Analysis section of the right-side Properties panel. Click any node in the list to navigate to it.</p>
+    <img src="b5.png" alt="Properties Panel - Impact Analysis & Metrics" class="doc-img-center" style="max-width: 360px;" />
   </div>
 
   <hr class="divider" />
@@ -447,6 +458,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
       After analysis completes, automated suggestions for improving code quality are generated.
       Click the <span class="badge badge-yellow">N tips</span> badge in the top-right corner to open the suggestions panel.
     </p>
+    <img src="b2.png" alt="Improvement Suggestions Panel" class="doc-img-center" style="max-width: 480px;" />
 
     <h3>Detection Rules (9 types)</h3>
     <table>
@@ -568,6 +580,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
         <tr><td><kbd class="kbd">Esc</kbd></td><td>Close search / clear selection</td></tr>
       </tbody>
     </table>
+    <img src="b3.png" alt="Graph Toolbar" class="doc-img-center" style="max-width: 60px;" />
   </div>
 
   <hr class="divider" />
@@ -612,6 +625,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
       A miniaturized view of the entire graph is displayed in the bottom-right corner of the canvas.
       The blue rectangle represents the currently visible area, and you can <strong>drag</strong> it to quickly navigate to a different region.
     </p>
+    <img src="b6.png" alt="Minimap with Node/Edge Counts" class="doc-img-center" style="max-width: 280px;" />
   </div>
 
   <hr class="divider" />
@@ -671,6 +685,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
         <div class="card-desc">Call order<br/>Sequential calls between participants</div>
       </div>
     </div>
+    <img src="b4.png" alt="Mermaid Diagram Type Selector" class="doc-img-center" style="max-width: 260px;" />
 
     <h3>Usage</h3>
     <ol>
@@ -702,6 +717,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
       Chat with AI using code analysis results as context.
       Click the Chat icon to open the chat panel, which automatically includes graph summaries, selected node details, and vulnerability information.
     </p>
+    <img src="b8.png" alt="LLM Chat Panel" class="doc-img-center" style="max-width: 400px;" />
 
     <h3>Usage</h3>
     <ol>
@@ -728,6 +744,8 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
         <tr><td><strong>Google Gemini</strong></td><td>gemini</td><td><code>gemini-pro</code></td><td>API Key required</td></tr>
       </tbody>
     </table>
+
+    <img src="b7.png" alt="LLM Settings Panel" class="doc-img" style="max-width: 100%;" />
 
     <div class="note">LLM chat requires network access to the API endpoint. Using Ollama enables LLM chat even in fully offline environments.</div>
   </div>
