@@ -107,13 +107,13 @@ export default function ChatPanel({ context, activeConfig, getActiveConfig, onCl
         {messages.length === 0 && !isStreaming && (
           <div className="text-center text-slate-500 text-[11px] mt-8 px-4 space-y-2">
             <MessageSquare size={24} className="mx-auto opacity-30" />
-            <p>코드 구조, 의존성, 분석 결과에 대해 질문하세요.</p>
+            <p>Ask questions about code structure, dependencies, and analysis results.</p>
             {!activeConfig?.apiKey && activeConfig?.providerId !== 'ollama' && (
               <button
                 onClick={onOpenSettings}
                 className="text-angel-400 hover:text-angel-300 underline"
               >
-                먼저 LLM을 설정하세요
+                Configure LLM settings first
               </button>
             )}
           </div>

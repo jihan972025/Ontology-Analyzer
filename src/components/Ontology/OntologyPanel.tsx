@@ -137,7 +137,8 @@ export default function OntologyPanel() {
         .map(e => {
           const isOut = e.source === selectedNode.id
           const other = nodes.find(n => n.id === (isOut ? e.target : e.source))
-          return other ? { label: other.label, type: other.type, direction: (isOut ? 'outgoing' : 'incoming') as const, edgeType: e.type } : null
+          const direction: 'outgoing' | 'incoming' = isOut ? 'outgoing' : 'incoming'
+          return other ? { label: other.label, type: other.type, direction, edgeType: e.type } : null
         }).filter(Boolean) as ChatContext['connectedNodes'] : undefined,
       vulnerabilities: vulnDetails,
     }
