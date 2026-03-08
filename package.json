@@ -1,6 +1,6 @@
 {
   "name": "ontology-analyzer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Code Ontology Analyzer - AST-based code structure visualization & security scanning",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -12,8 +12,11 @@
   },
   "dependencies": {
     "lucide-react": "^0.441.0",
+    "mermaid": "^11.12.3",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

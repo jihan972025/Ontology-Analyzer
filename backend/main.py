@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.routes_ontology import router as ontology_router
+from backend.api.routes_chat import router as chat_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ app.add_middleware(
 )
 
 app.include_router(ontology_router)
+app.include_router(chat_router)
 
 
 @app.get("/api/health")

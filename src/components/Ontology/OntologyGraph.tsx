@@ -45,6 +45,7 @@ export interface GraphHandle {
   focusOnFile: (file: string) => void
   focusOnNode: (nodeId: string) => void
   getCanvas: () => HTMLCanvasElement | null
+  applyTraceLayout: (traceNodeIds: Set<string>, traceEdgeKeys: Set<string>, startNodeId: string) => void
 }
 
 interface Props {
@@ -54,6 +55,8 @@ interface Props {
   highlightFile: string | null
   layout: LayoutMode
   impactMap: Map<string, number> | null
+  traceNodeIds: Set<string> | null
+  traceEdgeKeys: Set<string> | null
   onSelectNode: (node: GraphNode | null) => void
   onHoverNode?: (node: GraphNode | null, screenX: number, screenY: number) => void
 }
@@ -204,7 +207,7 @@ function computeRadialLayout(nodes: GraphNode[]) {
 
   // Dynamic radius: scale with total node count for more breathing room
   const baseRadius = Math.max(180, nodes.length * 6)
-  const ringGap = Math.max(50, 30 + nodes.length * 0.5)
+  const ringGap = Math.max(15, 10 + nodes.length * 0.1)
   const MIN_ARC_DIST = 40 // minimum arc distance between nodes on same ring
 
   clusterKeys.forEach((cid, ci) => {
@@ -236,8 +239,229 @@ function computeRadialLayout(nodes: GraphNode[]) {
   })
 }
 
+// --- Trace-specific layout: bidirectional call-chain tree ---
+// Callers (incoming) ← [startNode] → Callees (outgoing)
+// Returns bounding box of traced nodes for fit-to-view
+function computeTraceLayout(
+  allNodes: GraphNode[],
+  allEdges: GraphEdge[],
+  traceNodeIds: Set<string>,
+  traceEdgeKeys: Set<string>,
+  startNodeId: string,
+): { minX: number; maxX: number; minY: number; maxY: number } {
+  const MAX_W = 500
+  const MAX_H = 500
+  const defaultBounds = { minX: -MAX_W / 2, maxX: MAX_W / 2, minY: -MAX_H / 2, maxY: MAX_H / 2 }
+  if (traceNodeIds.size === 0) return defaultBounds
+
+  const nodeMap = new Map(allNodes.map(n => [n.id, n]))
+
+  // Build outgoing and incoming adjacency from traced edges only
+  const outAdj = new Map<string, string[]>()
+  const inAdj = new Map<string, string[]>()
+  for (const id of traceNodeIds) {
+    outAdj.set(id, [])
+    inAdj.set(id, [])
+  }
+  for (const e of allEdges) {
+    const key = `${e.source}→${e.target}`
+    if (traceEdgeKeys.has(key) && traceNodeIds.has(e.source) && traceNodeIds.has(e.target)) {
+      if (!outAdj.get(e.source)?.includes(e.target)) {
+        outAdj.get(e.source)?.push(e.target)
+      }
+      if (!inAdj.get(e.target)?.includes(e.source)) {
+        inAdj.get(e.target)?.push(e.source)
+      }
+    }
+  }
+
+  // Helper: BFS tree builder
+  function buildBfsTree(rootId: string, adjMap: Map<string, string[]>, excludeSet: Set<string>) {
+    const treeChildren = new Map<string, string[]>()
+    const assigned = new Set<string>()
+    const queue: string[] = []
+    const depthMap = new Map<string, number>()
+
+    assigned.add(rootId)
+    treeChildren.set(rootId, [])
+    depthMap.set(rootId, 0)
+    queue.push(rootId)
+
+    let qi = 0
+    while (qi < queue.length) {
+      const curr = queue[qi++]
+      const depth = depthMap.get(curr)!
+      for (const nb of adjMap.get(curr) ?? []) {
+        if (!assigned.has(nb) && !excludeSet.has(nb)) {
+          assigned.add(nb)
+          depthMap.set(nb, depth + 1)
+          if (!treeChildren.has(curr)) treeChildren.set(curr, [])
+          treeChildren.get(curr)!.push(nb)
+          treeChildren.set(nb, [])
+          queue.push(nb)
+        }
+      }
+    }
+    return { treeChildren, assigned, depthMap }
+  }
+
+  // Helper: calc subtree leaf count
+  function calcHeight(nid: string, treeChildren: Map<string, string[]>, subtreeH: Map<string, number>): number {
+    const ch = treeChildren.get(nid) ?? []
+    if (ch.length === 0) { subtreeH.set(nid, 1); return 1 }
+    const h = ch.reduce((sum, c) => sum + calcHeight(c, treeChildren, subtreeH), 0)
+    subtreeH.set(nid, h)
+    return h
+  }
+
+  // Helper: find max depth in a BFS tree
+  function maxDepth(depthMap: Map<string, number>): number {
+    let m = 0
+    for (const d of depthMap.values()) if (d > m) m = d
+    return m
+  }
+
+  // === Build both sides ===
+  const rightExclude = new Set<string>()
+  const right = buildBfsTree(startNodeId, outAdj, rightExclude)
+  const rightSubH = new Map<string, number>()
+  calcHeight(startNodeId, right.treeChildren, rightSubH)
+
+  const leftExclude = new Set<string>(right.assigned)
+  leftExclude.delete(startNodeId)
+  const left = buildBfsTree(startNodeId, inAdj, leftExclude)
+  const leftSubH = new Map<string, number>()
+  calcHeight(startNodeId, left.treeChildren, leftSubH)
+
+  // === Compute dynamic gaps to fit within MAX_W × MAX_H ===
+  const rightMaxDepth = maxDepth(right.depthMap)
+  const leftMaxDepth = maxDepth(left.depthMap)
+  const totalDepthCols = Math.max(1, rightMaxDepth + leftMaxDepth) // columns excluding start
+  const DEPTH_GAP = Math.min(180, MAX_W / (totalDepthCols + 1))
+
+  const rightLeafCount = rightSubH.get(startNodeId) ?? 1
+  const leftLeafCount = leftSubH.get(startNodeId) ?? 1
+  const maxLeaves = Math.max(rightLeafCount, leftLeafCount, 1)
+  const NODE_GAP = Math.min(50, MAX_H / maxLeaves)
+
+  // Helper: position subtree with computed gaps
+  function positionSubtree(
+    nid: string, topY: number, depth: number, direction: 1 | -1,
+    treeChildren: Map<string, string[]>, subtreeH: Map<string, number>,
+  ) {
+    const n = nodeMap.get(nid)
+    if (!n) return
+    const ch = treeChildren.get(nid) ?? []
+    const h = subtreeH.get(nid) ?? 1
+
+    n.x = depth * DEPTH_GAP * direction
+    n.y = topY + (h - 1) * NODE_GAP / 2
+    n.vx = 0
+    n.vy = 0
+
+    let childY = topY
+    for (const c of ch) {
+      const ch_h = subtreeH.get(c) ?? 1
+      positionSubtree(c, childY, depth + 1, direction, treeChildren, subtreeH)
+      childY += ch_h * NODE_GAP
+    }
+  }
+
+  // Position start node at origin
+  const startNode = nodeMap.get(startNodeId)
+  if (startNode) {
+    startNode.x = 0
+    startNode.y = 0
+    startNode.vx = 0
+    startNode.vy = 0
+  }
+
+  // Position right side (outgoing): direction = +1
+  const rightChildren = right.treeChildren.get(startNodeId) ?? []
+  let rightTopY = -((rightLeafCount - 1) * NODE_GAP) / 2
+  for (const c of rightChildren) {
+    const ch_h = rightSubH.get(c) ?? 1
+    positionSubtree(c, rightTopY, 1, 1, right.treeChildren, rightSubH)
+    rightTopY += ch_h * NODE_GAP
+  }
+
+  // Position left side (incoming): direction = -1
+  const leftChildren = left.treeChildren.get(startNodeId) ?? []
+  let leftTopY = -((leftLeafCount - 1) * NODE_GAP) / 2
+  for (const c of leftChildren) {
+    const ch_h = leftSubH.get(c) ?? 1
+    positionSubtree(c, leftTopY, 1, -1, left.treeChildren, leftSubH)
+    leftTopY += ch_h * NODE_GAP
+  }
+
+  // === Strictly clamp all traced nodes within MAX_W × MAX_H ===
+  // Step 1: Find the max node radius (including label padding)
+  let maxNodeRadius = 0
+  for (const n of allNodes) {
+    if (traceNodeIds.has(n.id)) {
+      const r = Math.max(3, Math.min(18, 3 + n.size * 1.5)) + 20
+      if (r > maxNodeRadius) maxNodeRadius = r
+    }
+  }
+
+  // Step 2: Compute center-to-center bounding box
+  let cMinX = Infinity, cMaxX = -Infinity, cMinY = Infinity, cMaxY = -Infinity
+  for (const n of allNodes) {
+    if (traceNodeIds.has(n.id)) {
+      if (n.x < cMinX) cMinX = n.x
+      if (n.x > cMaxX) cMaxX = n.x
+      if (n.y < cMinY) cMinY = n.y
+      if (n.y > cMaxY) cMaxY = n.y
+    }
+  }
+
+  // Step 3: Available space for node centers = MAX - 2 * maxNodeRadius
+  const availW = Math.max(1, MAX_W - 2 * maxNodeRadius)
+  const availH = Math.max(1, MAX_H - 2 * maxNodeRadius)
+  const spreadW = cMaxX - cMinX
+  const spreadH = cMaxY - cMinY
+
+  // Step 4: Scale positions so centers fit within available space
+  const scaleX = spreadW > 0 ? Math.min(1, availW / spreadW) : 1
+  const scaleY = spreadH > 0 ? Math.min(1, availH / spreadH) : 1
+  const scale = Math.min(scaleX, scaleY)
+
+  if (scale < 1) {
+    for (const n of allNodes) {
+      if (traceNodeIds.has(n.id)) {
+        n.x *= scale
+        n.y *= scale
+      }
+    }
+  }
+
+  // Step 5: Compute final bounding box (with node radii) for return value
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const n of allNodes) {
+    if (traceNodeIds.has(n.id)) {
+      const r = Math.max(3, Math.min(18, 3 + n.size * 1.5)) + 20
+      if (n.x - r < minX) minX = n.x - r
+      if (n.x + r > maxX) maxX = n.x + r
+      if (n.y - r < minY) minY = n.y - r
+      if (n.y + r > maxY) maxY = n.y + r
+    }
+  }
+
+  // Move non-traced nodes far away
+  for (const n of allNodes) {
+    if (!traceNodeIds.has(n.id)) {
+      n.x = 99999
+      n.y = 99999
+      n.vx = 0
+      n.vy = 0
+    }
+  }
+
+  return { minX, maxX, minY, maxY }
+}
+
 const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
-  { nodes, edges, selectedNodeId, highlightFile, layout, impactMap, onSelectNode, onHoverNode },
+  { nodes, edges, selectedNodeId, highlightFile, layout, impactMap, traceNodeIds, traceEdgeKeys, onSelectNode, onHoverNode },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -278,6 +502,31 @@ const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
     getCanvas() {
       return canvasRef.current
     },
+    applyTraceLayout(traceIds: Set<string>, traceKeys: Set<string>, startId: string) {
+      const ns = nodesRef.current
+      const es = edgesRef.current
+      const canvas = canvasRef.current
+      if (ns.length === 0) return
+
+      const bounds = computeTraceLayout(ns, es, traceIds, traceKeys, startId)
+
+      // Fit-to-view: calculate zoom so all traced nodes fit in canvas with padding
+      if (canvas && bounds.minX < bounds.maxX) {
+        const cw = canvas.clientWidth
+        const ch = canvas.clientHeight
+        const padding = 80 // px padding on each side
+        const contentW = bounds.maxX - bounds.minX
+        const contentH = bounds.maxY - bounds.minY
+        const zoomX = (cw - padding * 2) / Math.max(contentW, 1)
+        const zoomY = (ch - padding * 2) / Math.max(contentH, 1)
+        const zoom = Math.max(0.15, Math.min(2, Math.min(zoomX, zoomY)))
+        const cx = (bounds.minX + bounds.maxX) / 2
+        const cy = (bounds.minY + bounds.maxY) / 2
+        camRef.current = { x: -cx * zoom, y: -cy * zoom, zoom }
+      } else {
+        camRef.current = { x: 0, y: 0, zoom: 1 }
+      }
+    },
   }))
 
   const dragRef = useRef<{ dragging: boolean; startX: number; startY: number; camStartX: number; camStartY: number; draggedNode: GraphNode | null; minimapDrag: boolean }>({
@@ -314,6 +563,37 @@ const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
       camRef.current = { x: 0, y: 0, zoom: 1 }
     }
   }, [layout])
+
+  // Restore layout when trace is cleared
+  const prevTraceRef = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    const wasTracing = prevTraceRef.current !== null && prevTraceRef.current.size > 0
+    const isTracing = traceNodeIds !== null && traceNodeIds.size > 0
+    prevTraceRef.current = traceNodeIds
+
+    // If trace was just cleared, re-apply current layout
+    if (wasTracing && !isTracing) {
+      const ns = nodesRef.current
+      const es = edgesRef.current
+      if (ns.length === 0) return
+      if (layoutRef.current === 'tree') {
+        computeTreeLayout(ns, es)
+      } else if (layoutRef.current === 'radial') {
+        computeRadialLayout(ns)
+      } else {
+        for (let i = 0; i < ns.length; i++) {
+          const angle = i * 2.39996
+          const r = Math.sqrt(i) * 30
+          ns[i].x = Math.cos(angle) * r
+          ns[i].y = Math.sin(angle) * r
+          ns[i].vx = 0
+          ns[i].vy = 0
+        }
+        tickCount.current = 0
+      }
+      camRef.current = { x: 0, y: 0, zoom: 1 }
+    }
+  }, [traceNodeIds])
 
   // Initialize node positions
   useEffect(() => {
@@ -469,6 +749,8 @@ const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
     const selId = selectedNodeId
     const hlFile = highlightFile
     const impact = impactMap
+    const traceNs = traceNodeIds
+    const traceEs = traceEdgeKeys
 
     // Determine connected nodes for hover highlighting
     const connectedToHover = new Set<string>()
@@ -499,15 +781,31 @@ const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
       const t = nodeMapRef.current.get(e.target)
       if (!s || !t) continue
 
-      let opacity = 0.15
-      let width = 0.5
-      let showArrow = false
+      const isInheritanceEdge = e.type === 'extends' || e.type === 'implements'
+      let opacity = isInheritanceEdge ? 0.5 : 0.15
+      let width = isInheritanceEdge ? 1.2 : 0.5
+      let showArrow = isInheritanceEdge
       let showOrder = false
-      let edgeColor = `rgba(94,94,94,${opacity})`
+      let edgeColor = isInheritanceEdge
+        ? `rgba(168,130,255,${opacity})`  // purple for inheritance
+        : `rgba(94,94,94,${opacity})`
 
       const isSelEdge = selId && (e.source === selId || e.target === selId)
+      const edgeKey = `${e.source}→${e.target}`
+      const isTraced = traceEs?.has(edgeKey)
 
-      if (hovId) {
+      // Trace mode: dim non-traced edges, highlight traced ones
+      if (traceNs && traceEs) {
+        if (isTraced) {
+          edgeColor = `rgba(52,211,153,0.8)` // emerald
+          width = 2
+          showArrow = true
+          if (e.type === 'calls') { showOrder = e.order != null }
+        } else {
+          edgeColor = `rgba(94,94,94,0.03)`
+          width = 0.2
+        }
+      } else if (hovId) {
         if (connectedToHover.has(e.source) && connectedToHover.has(e.target)) {
           const color = getClusterColor(s.cluster)
           const [r, g, b] = hexToRgb(color)
@@ -516,7 +814,7 @@ const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
           showArrow = true
           if (e.type === 'calls') { showOrder = e.order != null }
         } else {
-          edgeColor = `rgba(94,94,94,0.06)`
+          edgeColor = isInheritanceEdge ? `rgba(168,130,255,0.15)` : `rgba(94,94,94,0.08)`
           width = 0.3
         }
       } else if (isSelEdge) {
@@ -548,8 +846,8 @@ const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
         }
       }
 
-      // Circular dependency override: red
-      if (e.circular) {
+      // Circular dependency override: red (but not in trace mode for non-traced edges)
+      if (e.circular && (!traceNs || isTraced)) {
         edgeColor = `rgba(255,60,60,0.7)`
         width = Math.max(width, 1.5)
         showArrow = true
@@ -625,22 +923,36 @@ const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
       let alpha = 1
       const radius = baseRadius
       let glowRadius = 0
+      const isTraced = traceNs?.has(n.id)
 
-      // Dimming
-      if (hovId && !connectedToHover.has(n.id)) {
-        alpha = 0.15
-      } else if (!hovId && !hlFile && selId && !connectedToSel.has(n.id)) {
-        alpha = 0.2
+      // Trace mode dimming
+      if (traceNs) {
+        if (isTraced) {
+          alpha = 1
+          // Give traced nodes an emerald glow
+          glowRadius = radius + 5
+        } else {
+          alpha = 0.06
+        }
       }
 
-      if (hlFile) {
+      // Dimming (only when not in trace mode)
+      if (!traceNs) {
+        if (hovId && !connectedToHover.has(n.id)) {
+          alpha = 0.4
+        } else if (!hovId && !hlFile && selId && !connectedToSel.has(n.id)) {
+          alpha = 0.45
+        }
+      }
+
+      if (hlFile && !traceNs) {
         if (n.file === hlFile) {
           alpha = 1
           glowRadius = radius + 4
         } else if (fileRelated.has(n.id)) {
           alpha = 0.7
         } else {
-          alpha = 0.08
+          alpha = 0.15
         }
       }
 
@@ -660,6 +972,9 @@ const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
         if (n.id === selId) {
           grad.addColorStop(0, `rgba(255,140,0,0.5)`)
           grad.addColorStop(1, `rgba(255,140,0,0)`)
+        } else if (traceNs && isTraced) {
+          grad.addColorStop(0, `rgba(52,211,153,0.4)`)
+          grad.addColorStop(1, `rgba(52,211,153,0)`)
         } else {
           grad.addColorStop(0, `rgba(${r},${g},${b},0.4)`)
           grad.addColorStop(1, `rgba(${r},${g},${b},0)`)
@@ -793,11 +1108,11 @@ const OntologyGraph = forwardRef<GraphHandle, Props>(function OntologyGraph(
     }
 
     // HUD info
-    ctx.fillStyle = 'rgba(255,255,255,0.3)'
+    ctx.fillStyle = 'rgba(255,255,255,0.75)'
     ctx.font = '11px monospace'
     ctx.textAlign = 'left'
     ctx.fillText(`Nodes: ${ns.length}  Edges: ${es.length}  Zoom: ${cam.zoom.toFixed(2)}x`, 8, h - 8)
-  }, [hoveredNode, selectedNodeId, highlightFile, impactMap])
+  }, [hoveredNode, selectedNodeId, highlightFile, impactMap, traceNodeIds, traceEdgeKeys])
 
   // Animation loop
   useEffect(() => {

@@ -1,5 +1,5 @@
-import { FolderOpen, FileCode, ChevronRight, ChevronDown, Search, ChevronUp, Files, FilePlus2 } from 'lucide-react'
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { FolderOpen, FileCode, ChevronRight, ChevronDown, Search, ChevronUp, Files, FilePlus2, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 
 interface FileEntry {
   path: string
@@ -12,10 +12,12 @@ interface Props {
   loading: boolean
   highlightFile: string | null
   hasSelectedFiles: boolean
+  multiSelectedFiles?: Set<string>
   onSelectFolder: () => void
   onSelectFiles: () => void
   onAddFiles: () => void
   onHighlightFile: (file: string | null) => void
+  onFileClick?: (file: string, shiftKey: boolean) => void
 }
 
 // Build a simple tree from flat file paths
@@ -63,6 +65,18 @@ function buildTree(files: FileEntry[]): TreeNode[] {
   return root.children
 }
 
+/** Collect all directory paths from a tree */
+function collectDirPaths(nodes: TreeNode[]): string[] {
+  const paths: string[] = []
+  for (const n of nodes) {
+    if (n.isDir) {
+      paths.push(n.path)
+      paths.push(...collectDirPaths(n.children))
+    }
+  }
+  return paths
+}
+
 const EXT_COLORS: Record<string, string> = {
   '.java': 'text-orange-400',
   '.py': 'text-yellow-400',
@@ -80,23 +94,32 @@ function TreeItem({
   node,
   depth,
   highlightFile,
+  multiSelectedFiles,
+  expandedDirs,
+  onToggleDir,
   onHighlightFile,
+  onFileClick,
 }: {
   node: TreeNode
   depth: number
   highlightFile: string | null
+  multiSelectedFiles?: Set<string>
+  expandedDirs: Set<string>
+  onToggleDir: (path: string) => void
   onHighlightFile: (file: string | null) => void
+  onFileClick?: (file: string, shiftKey: boolean) => void
 }) {
-  const [expanded, setExpanded] = useState(depth < 2)
   const isHighlighted = highlightFile === node.path
+  const isMultiSelected = multiSelectedFiles?.has(node.path) ?? false
 
   if (node.isDir) {
+    const expanded = expandedDirs.has(node.path)
     return (
       <div>
         <button
           className="flex items-center gap-1 w-full text-left px-2 py-0.5 hover:bg-slate-700/50 text-xs text-slate-300"
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => onToggleDir(node.path)}
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           <FolderOpen size={12} className="text-amber-400" />
@@ -108,7 +131,11 @@ function TreeItem({
             node={child}
             depth={depth + 1}
             highlightFile={highlightFile}
+            multiSelectedFiles={multiSelectedFiles}
+            expandedDirs={expandedDirs}
+            onToggleDir={onToggleDir}
             onHighlightFile={onHighlightFile}
+            onFileClick={onFileClick}
           />
         ))}
       </div>
@@ -118,12 +145,20 @@ function TreeItem({
   return (
     <button
       className={`flex items-center gap-1 w-full text-left px-2 py-0.5 text-xs truncate ${
-        isHighlighted
-          ? 'bg-angel-600/30 text-white'
-          : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
+        isMultiSelected
+          ? 'bg-violet-600/30 text-violet-200'
+          : isHighlighted
+            ? 'bg-angel-600/30 text-white'
+            : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
       }`}
       style={{ paddingLeft: `${depth * 12 + 8}px` }}
-      onClick={() => onHighlightFile(isHighlighted ? null : node.path)}
+      onClick={(e) => {
+        if (onFileClick) {
+          onFileClick(node.path, e.shiftKey)
+        } else {
+          onHighlightFile(isHighlighted ? null : node.path)
+        }
+      }}
     >
       <FileCode size={12} className={EXT_COLORS[node.ext || ''] || 'text-slate-500'} />
       <span className="truncate">{node.name}</span>
@@ -137,13 +172,16 @@ export default function OntologyFileList({
   loading,
   highlightFile,
   hasSelectedFiles,
+  multiSelectedFiles,
   onSelectFolder,
   onSelectFiles,
   onAddFiles,
   onHighlightFile,
+  onFileClick,
 }: Props) {
   const [filter, setFilter] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set())
   const menuRef = useRef<HTMLDivElement>(null)
   const tree = useMemo(() => {
     const filtered = filter
@@ -151,6 +189,37 @@ export default function OntologyFileList({
       : files
     return buildTree(filtered)
   }, [files, filter])
+
+  // Auto-expand top 2 levels when tree changes
+  useEffect(() => {
+    const auto = new Set<string>()
+    for (const n of tree) {
+      if (n.isDir) {
+        auto.add(n.path)
+        for (const c of n.children) {
+          if (c.isDir) auto.add(c.path)
+        }
+      }
+    }
+    setExpandedDirs(auto)
+  }, [tree])
+
+  const onToggleDir = useCallback((path: string) => {
+    setExpandedDirs(prev => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }, [])
+
+  const expandAll = useCallback(() => {
+    setExpandedDirs(new Set(collectDirPaths(tree)))
+  }, [tree])
+
+  const collapseAll = useCallback(() => {
+    setExpandedDirs(new Set())
+  }, [])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -163,6 +232,10 @@ export default function OntologyFileList({
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpen])
+
+  const allDirPaths = useMemo(() => collectDirPaths(tree), [tree])
+  const hasDirs = allDirPaths.length > 0
+  const allExpanded = hasDirs && allDirPaths.every(p => expandedDirs.has(p))
 
   return (
     <div className="flex flex-col h-full">
@@ -207,10 +280,10 @@ export default function OntologyFileList({
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search + Expand/Collapse */}
       {files.length > 0 && (
-        <div className="p-2 border-b border-slate-700">
-          <div className="relative">
+        <div className="p-2 border-b border-slate-700 flex items-center gap-1.5">
+          <div className="relative flex-1">
             <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               value={filter}
@@ -219,6 +292,15 @@ export default function OntologyFileList({
               className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 pl-7 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-angel-500"
             />
           </div>
+          {hasDirs && (
+            <button
+              onClick={allExpanded ? collapseAll : expandAll}
+              className="w-6 h-6 rounded flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-600 transition-colors shrink-0"
+              title={allExpanded ? 'Collapse all' : 'Expand all'}
+            >
+              {allExpanded ? <ChevronsDownUp size={12} /> : <ChevronsUpDown size={12} />}
+            </button>
+          )}
         </div>
       )}
 
@@ -235,12 +317,17 @@ export default function OntologyFileList({
           </div>
         ) : (
           <div className="py-1">
-            {highlightFile && (
+            {(highlightFile || (multiSelectedFiles && multiSelectedFiles.size > 0)) && (
               <button
-                onClick={() => onHighlightFile(null)}
+                onClick={() => {
+                  onHighlightFile(null)
+                  if (onFileClick) onFileClick('', false) // signal clear
+                }}
                 className="w-full text-left px-3 py-1 text-xs text-angel-400 hover:text-angel-300 border-b border-slate-700/50"
               >
-                Clear filter
+                {multiSelectedFiles && multiSelectedFiles.size > 0
+                  ? `Clear selection (${multiSelectedFiles.size} files)`
+                  : 'Clear filter'}
               </button>
             )}
             {tree.map((node) => (
@@ -249,7 +336,11 @@ export default function OntologyFileList({
                 node={node}
                 depth={0}
                 highlightFile={highlightFile}
+                multiSelectedFiles={multiSelectedFiles}
+                expandedDirs={expandedDirs}
+                onToggleDir={onToggleDir}
                 onHighlightFile={onHighlightFile}
+                onFileClick={onFileClick}
               />
             ))}
             <div className="px-3 py-2 text-xs text-slate-600">

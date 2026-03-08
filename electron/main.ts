@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { spawn, ChildProcess } from 'child_process'
 import path from 'path'
 import fs from 'fs'
@@ -103,6 +103,16 @@ function createWindow() {
     mainWindow.loadFile(indexPath)
   }
 
+  // F12 or Ctrl+Shift+I to toggle DevTools
+  mainWindow.webContents.on('before-input-event', (_e, input) => {
+    if (input.type === 'keyDown') {
+      if (input.key === 'F12' ||
+          (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+        mainWindow?.webContents.toggleDevTools()
+      }
+    }
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -139,6 +149,7 @@ ipcMain.handle('select-files', async () => {
 
 // App lifecycle
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null)
   startBackend()
   createWindow()
 })

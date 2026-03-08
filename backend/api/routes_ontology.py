@@ -51,6 +51,16 @@ class Vulnerability(BaseModel):
     nodeId: str      # Enclosing node ID
 
 
+class Suggestion(BaseModel):
+    id: str              # e.g. "high-fan-in:method:Foo.bar"
+    category: str        # complexity, dead_code, circular, large_function, hub, vulnerability, inheritance, wide_interface
+    priority: str        # high, medium, low
+    title: str           # Short title
+    description: str     # Detailed explanation with actionable advice
+    nodeIds: list[str]   # Affected node IDs (clickable in frontend)
+    file: str | None = None  # Primary file affected
+
+
 # ---------------------------------------------------------------------------
 # Java parser
 # ---------------------------------------------------------------------------
@@ -76,8 +86,13 @@ def _parse_java(filepath: str, nodes: dict, edges: list, file_label: str):
     except Exception:
         return
 
-    lines = content.split("\n")
-    current_class = None
+    content = _strip_comments(content)
+
+    # Create file node (same as _parse_generic)
+    file_id = f"file:{file_label}"
+    nodes[file_id] = OntologyNode(
+        id=file_id, label=file_label, type="file", file=file_label
+    )
 
     # Extract imports
     for m in _JAVA_IMPORT_RE.finditer(content):
@@ -89,7 +104,10 @@ def _parse_java(filepath: str, nodes: dict, edges: list, file_label: str):
                 id=imp_id, label=short, type="class", file="(external)", cluster=0
             )
 
-    # Extract classes / interfaces
+    # --- Build class ranges: (class_name, start_offset, end_offset) ---
+    # Each class body spans from its opening '{' to the matching '}'.
+    class_ranges: list[tuple[str, int, int]] = []
+
     for m in _JAVA_CLASS_RE.finditer(content):
         cls_name = m.group(1)
         cls_id = f"class:{cls_name}"
@@ -97,7 +115,6 @@ def _parse_java(filepath: str, nodes: dict, edges: list, file_label: str):
         nodes[cls_id] = OntologyNode(
             id=cls_id, label=cls_name, type="class", file=file_label, line=line_no
         )
-        current_class = cls_name
 
         if m.group(2):  # extends
             parent = m.group(2)
@@ -126,13 +143,40 @@ def _parse_java(filepath: str, nodes: dict, edges: list, file_label: str):
                         )
                     )
 
-    # Extract methods
+        # Find class body range via brace matching
+        brace_pos = content.find("{", m.end())
+        if brace_pos != -1:
+            brace_count = 0
+            body_end = len(content)
+            for i in range(brace_pos, len(content)):
+                if content[i] == "{":
+                    brace_count += 1
+                elif content[i] == "}":
+                    brace_count -= 1
+                    if brace_count == 0:
+                        body_end = i
+                        break
+            class_ranges.append((cls_name, brace_pos, body_end))
+
+    # Sort by start offset so inner (nested) classes come after outer ones.
+    # For a method offset, the innermost (last matching) range is the correct owner.
+    class_ranges.sort(key=lambda r: r[1])
+
+    def _find_owner_class(offset: int) -> str | None:
+        """Find the innermost class that contains the given character offset."""
+        owner = None
+        for cls_name, cls_start, cls_end in class_ranges:
+            if cls_start <= offset <= cls_end:
+                owner = cls_name  # keep going; later (inner) match overrides
+        return owner
+
+    # --- Extract methods with correct class ownership ---
     for m in _JAVA_METHOD_RE.finditer(content):
         method_name = m.group(1)
         if method_name in ("if", "for", "while", "switch", "catch", "return"):
             continue
         line_no = content[: m.start()].count("\n") + 1
-        owner = current_class or file_label
+        owner = _find_owner_class(m.start()) or file_label
         method_id = f"method:{owner}.{method_name}"
         nodes[method_id] = OntologyNode(
             id=method_id,
@@ -141,10 +185,10 @@ def _parse_java(filepath: str, nodes: dict, edges: list, file_label: str):
             file=file_label,
             line=line_no,
         )
-        if current_class:
+        if owner != file_label:
             edges.append(
                 OntologyEdge(
-                    source=f"class:{current_class}", target=method_id, type="calls"
+                    source=f"class:{owner}", target=method_id, type="calls"
                 )
             )
 
@@ -203,8 +247,9 @@ def _parse_java(filepath: str, nodes: dict, edges: list, file_label: str):
 _PY_IMPORT_RE = re.compile(
     r"^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w.]+))", re.MULTILINE
 )
-_PY_CLASS_RE = re.compile(r"^\s*class\s+(\w+)", re.MULTILINE)
+_PY_CLASS_RE = re.compile(r"^\s*class\s+(\w+)(?:\s*\(([^)]*)\))?", re.MULTILINE)
 _PY_FUNC_RE = re.compile(r"^\s*def\s+(\w+)", re.MULTILINE)
+_CALL_RE = re.compile(r"\b(\w+)\s*\(")
 
 _TS_IMPORT_RE = re.compile(
     r"""(?:import\s+(?:(?:\{[^}]*\}|\w+|\*\s+as\s+\w+)(?:\s*,\s*(?:\{[^}]*\}|\w+|\*\s+as\s+\w+))*\s+from\s+)?['\"]([^'\"]+)['\"]|require\s*\(\s*['\"]([^'\"]+)['\"]\s*\))"""
@@ -212,6 +257,12 @@ _TS_IMPORT_RE = re.compile(
 _TS_CLASS_RE = re.compile(r"\bclass\s+(\w+)", re.MULTILINE)
 _TS_FUNC_RE = re.compile(
     r"(?:export\s+)?(?:async\s+)?function\s+(\w+)", re.MULTILINE
+)
+# Arrow functions: const/let/var name = (...) => { or const name = async (...) => {
+# Also handles: generics <T>(...), destructured params ({a, b}), multiline params
+_TS_ARROW_RE = re.compile(
+    r"(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(?:<[^>]*>\s*)?(?:\([^)]*\)|[a-zA-Z_]\w*)\s*(?::\s*[^=]+?)?\s*=>",
+    re.MULTILINE,
 )
 
 _GO_IMPORT_RE = re.compile(r'"([\w./]+)"')
@@ -222,9 +273,147 @@ _C_FUNC_RE = re.compile(
     r"^[\w*]+\s+(\w+)\s*\([^)]*\)\s*\{", re.MULTILINE
 )
 
+# Common keywords / builtins to skip when detecting calls
+_CALL_SKIP = frozenset({
+    "if", "for", "while", "switch", "catch", "return", "throw", "typeof",
+    "new", "super", "this", "self", "cls",
+    "print", "println", "printf", "format", "str", "int", "float", "bool",
+    "list", "dict", "set", "tuple", "len", "range", "enumerate", "zip", "map",
+    "filter", "sorted", "reversed", "isinstance", "issubclass", "hasattr",
+    "getattr", "setattr", "delattr", "type", "object", "property",
+    "staticmethod", "classmethod", "super", "vars", "dir", "id", "hash",
+    "repr", "abs", "round", "min", "max", "sum", "any", "all", "open",
+    "String", "Number", "Boolean", "Array", "Object", "Map", "Set",
+    "Promise", "Date", "RegExp", "Error", "JSON", "Math", "console",
+    "setTimeout", "setInterval", "clearTimeout", "clearInterval",
+    "parseInt", "parseFloat", "isNaN", "isFinite",
+    "require", "import", "export", "module", "define",
+    "describe", "it", "test", "expect", "beforeEach", "afterEach",
+    "useState", "useEffect", "useRef", "useMemo", "useCallback",
+    "useContext", "useReducer", "useImperativeHandle", "forwardRef",
+    "createElement", "createContext", "memo", "lazy",
+})
+
+
+_COMMENT_LINE_RE = re.compile(r"//[^\n]*")
+_COMMENT_BLOCK_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+_PY_COMMENT_RE = re.compile(r"#[^\n]*")
+
+
+def _strip_comments(content: str) -> str:
+    """Remove single-line (//) and block (/* */) comments while preserving line count.
+    Replaces comment text with spaces so line numbers stay correct."""
+    def _replace_keep_lines(m: re.Match) -> str:
+        text = m.group(0)
+        return re.sub(r"[^\n]", " ", text)
+    content = _COMMENT_BLOCK_RE.sub(_replace_keep_lines, content)
+    content = _COMMENT_LINE_RE.sub(_replace_keep_lines, content)
+    return content
+
+
+def _strip_py_comments(content: str) -> str:
+    """Remove Python # comments while preserving line count."""
+    def _replace_keep_lines(m: re.Match) -> str:
+        return re.sub(r"[^\n]", " ", m.group(0))
+    return _PY_COMMENT_RE.sub(_replace_keep_lines, content)
+
+
+def _extract_brace_body(content: str, open_pos: int) -> str:
+    """Extract body between matching braces starting at open_pos (must be '{')."""
+    brace_count = 0
+    for i in range(open_pos, len(content)):
+        if content[i] == "{":
+            brace_count += 1
+        elif content[i] == "}":
+            brace_count -= 1
+            if brace_count == 0:
+                return content[open_pos:i]
+    return content[open_pos:]
+
+
+def _extract_py_body(content: str, match_start: int) -> str:
+    """Extract Python function body using indentation.
+    match_start is the char offset of the 'def' keyword in content."""
+    # Find the start of the line containing 'def'
+    line_start = content.rfind("\n", 0, match_start)
+    line_start = line_start + 1 if line_start != -1 else 0
+    def_line = content[line_start:content.find("\n", match_start)]
+    base_indent = len(def_line) - len(def_line.lstrip())
+
+    # Find the end of the def line (after the colon)
+    colon_pos = content.find(":", match_start)
+    if colon_pos == -1:
+        return ""
+    body_start = content.find("\n", colon_pos)
+    if body_start == -1:
+        return ""
+    body_start += 1  # skip the newline
+
+    # Collect body lines (indented deeper than base)
+    body_lines: list[str] = []
+    pos = body_start
+    while pos < len(content):
+        next_nl = content.find("\n", pos)
+        if next_nl == -1:
+            line = content[pos:]
+            next_nl = len(content)
+        else:
+            line = content[pos:next_nl]
+
+        stripped = line.strip()
+        if not stripped:  # blank lines are part of body
+            body_lines.append(line)
+            pos = next_nl + 1
+            continue
+        line_indent = len(line) - len(line.lstrip())
+        if line_indent <= base_indent:
+            break  # back to same or outer indent level → body ended
+        body_lines.append(line)
+        pos = next_nl + 1
+    return "\n".join(body_lines)
+
+
+def _extract_calls_from_body(
+    body: str,
+    caller_id: str,
+    file_label: str,
+    known_fn_names: set[str],
+    nodes: dict,
+    edges: list,
+    node_type: str = "function",
+):
+    """Scan body text for function calls and create call edges.
+    Only creates edges to functions that exist in known_fn_names (same file)."""
+    call_order = 0
+    seen_callees: set[str] = set()
+    for call_m in _CALL_RE.finditer(body):
+        callee_name = call_m.group(1)
+        if callee_name in _CALL_SKIP:
+            continue
+        if callee_name not in known_fn_names:
+            continue
+        callee_id = f"{node_type}:{file_label}.{callee_name}"
+        if callee_id == caller_id:
+            continue  # skip self-recursion for clarity
+        # Create placeholder node if not yet known
+        if callee_id not in nodes:
+            nodes[callee_id] = OntologyNode(
+                id=callee_id, label=callee_name, type=node_type,
+                file=file_label,
+            )
+        edge_key = (caller_id, callee_id)
+        if edge_key not in seen_callees:
+            seen_callees.add(edge_key)
+            edges.append(OntologyEdge(
+                source=caller_id, target=callee_id,
+                type="calls", order=call_order,
+            ))
+            call_order += 1
+
 
 def _parse_generic(filepath: str, nodes: dict, edges: list, file_label: str):
-    """Parse Python, TS/JS, Go, C/C++ files for basic relationships."""
+    """Parse Python, TS/JS, Go, C/C++ files for basic relationships
+    including function-to-function call extraction."""
     ext = os.path.splitext(filepath)[1].lower()
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
@@ -232,12 +421,20 @@ def _parse_generic(filepath: str, nodes: dict, edges: list, file_label: str):
     except Exception:
         return
 
+    # Strip comments to prevent false positives
+    # (e.g. "function" or "def" in comments being detected as declarations)
+    if ext in (".py",):
+        content = _strip_py_comments(content)
+    else:
+        content = _strip_comments(content)
+
     file_id = f"file:{file_label}"
     nodes[file_id] = OntologyNode(
         id=file_id, label=file_label, type="file", file=file_label
     )
 
     if ext in (".py",):
+        # --- imports ---
         for m in _PY_IMPORT_RE.finditer(content):
             mod = m.group(1) or m.group(2)
             short = mod.split(".")[-1]
@@ -247,22 +444,64 @@ def _parse_generic(filepath: str, nodes: dict, edges: list, file_label: str):
                     id=mod_id, label=short, type="module", file="(external)"
                 )
             edges.append(OntologyEdge(source=file_id, target=mod_id, type="imports"))
+
+        # --- classes (with inheritance) ---
         for m in _PY_CLASS_RE.finditer(content):
-            cls_id = f"class:{m.group(1)}"
+            cls_name = m.group(1)
+            cls_id = f"class:{cls_name}"
             line_no = content[: m.start()].count("\n") + 1
             nodes[cls_id] = OntologyNode(
-                id=cls_id, label=m.group(1), type="class", file=file_label, line=line_no
+                id=cls_id, label=cls_name, type="class", file=file_label, line=line_no
             )
             edges.append(OntologyEdge(source=file_id, target=cls_id, type="references"))
+
+            # Parse base classes: class Foo(Bar, Baz, metaclass=ABCMeta)
+            bases_str = m.group(2)
+            if bases_str:
+                for base_raw in bases_str.split(","):
+                    base = base_raw.strip()
+                    # Skip keyword args like metaclass=..., ABC, object
+                    if not base or "=" in base or base in ("object",):
+                        continue
+                    # Handle dotted names: module.ClassName → take last part
+                    base_short = base.split(".")[-1].strip()
+                    if not base_short or not base_short[0].isupper():
+                        continue  # skip non-class names (e.g. lowercase mixins are rare)
+                    parent_id = f"class:{base_short}"
+                    if parent_id not in nodes:
+                        nodes[parent_id] = OntologyNode(
+                            id=parent_id, label=base_short, type="class",
+                            file="(external)",
+                        )
+                    edges.append(OntologyEdge(
+                        source=cls_id, target=parent_id, type="extends"
+                    ))
+
+        # --- functions / methods: collect first, then extract calls ---
+        func_defs: list[tuple[str, str, int]] = []  # (fn_id, fn_name, match_start)
+        fn_name_set: set[str] = set()
+
         for m in _PY_FUNC_RE.finditer(content):
-            fn_id = f"function:{file_label}.{m.group(1)}"
+            fn_name = m.group(1)
             line_no = content[: m.start()].count("\n") + 1
+            fn_id = f"function:{file_label}.{fn_name}"
             nodes[fn_id] = OntologyNode(
-                id=fn_id, label=m.group(1), type="function", file=file_label, line=line_no
+                id=fn_id, label=fn_name, type="function", file=file_label, line=line_no
             )
             edges.append(OntologyEdge(source=file_id, target=fn_id, type="references"))
+            func_defs.append((fn_id, fn_name, m.start()))
+            fn_name_set.add(fn_name)
+
+        # Extract calls from each function body
+        for fn_id, fn_name, match_start in func_defs:
+            body = _extract_py_body(content, match_start)
+            nodes[fn_id].lines = body.count("\n") + 1 if body.strip() else 0
+            _extract_calls_from_body(
+                body, fn_id, file_label, fn_name_set, nodes, edges, "function"
+            )
 
     elif ext in (".ts", ".tsx", ".js", ".jsx", ".mjs"):
+        # --- imports ---
         for m in _TS_IMPORT_RE.finditer(content):
             mod = m.group(1) or m.group(2)
             short = mod.split("/")[-1]
@@ -272,6 +511,8 @@ def _parse_generic(filepath: str, nodes: dict, edges: list, file_label: str):
                     id=mod_id, label=short, type="module", file="(external)"
                 )
             edges.append(OntologyEdge(source=file_id, target=mod_id, type="imports"))
+
+        # --- classes ---
         for m in _TS_CLASS_RE.finditer(content):
             cls_id = f"class:{m.group(1)}"
             line_no = content[: m.start()].count("\n") + 1
@@ -279,15 +520,52 @@ def _parse_generic(filepath: str, nodes: dict, edges: list, file_label: str):
                 id=cls_id, label=m.group(1), type="class", file=file_label, line=line_no
             )
             edges.append(OntologyEdge(source=file_id, target=cls_id, type="references"))
+
+        # --- functions (named + arrow): collect first, then extract calls ---
+        func_defs: list[tuple[str, str, re.Match]] = []  # (fn_id, fn_name, match)
+        fn_name_set: set[str] = set()
+
+        # Named functions
         for m in _TS_FUNC_RE.finditer(content):
-            fn_id = f"function:{file_label}.{m.group(1)}"
+            fn_name = m.group(1)
+            fn_id = f"function:{file_label}.{fn_name}"
             line_no = content[: m.start()].count("\n") + 1
             nodes[fn_id] = OntologyNode(
-                id=fn_id, label=m.group(1), type="function", file=file_label, line=line_no
+                id=fn_id, label=fn_name, type="function", file=file_label, line=line_no
             )
             edges.append(OntologyEdge(source=file_id, target=fn_id, type="references"))
+            func_defs.append((fn_id, fn_name, m))
+            fn_name_set.add(fn_name)
+
+        # Arrow functions
+        for m in _TS_ARROW_RE.finditer(content):
+            fn_name = m.group(1)
+            if fn_name in fn_name_set:
+                continue  # already found as named function
+            fn_id = f"function:{file_label}.{fn_name}"
+            line_no = content[: m.start()].count("\n") + 1
+            nodes[fn_id] = OntologyNode(
+                id=fn_id, label=fn_name, type="function", file=file_label, line=line_no
+            )
+            edges.append(OntologyEdge(source=file_id, target=fn_id, type="references"))
+            func_defs.append((fn_id, fn_name, m))
+            fn_name_set.add(fn_name)
+
+        # Extract calls from each function body
+        for fn_id, fn_name, match in func_defs:
+            # Find the opening brace after the match
+            search_start = match.end()
+            brace_pos = content.find("{", search_start)
+            if brace_pos == -1 or (brace_pos - search_start) > 200:
+                continue  # no brace found nearby
+            body = _extract_brace_body(content, brace_pos)
+            nodes[fn_id].lines = body.count("\n") + 1 if body.strip() else 0
+            _extract_calls_from_body(
+                body, fn_id, file_label, fn_name_set, nodes, edges, "function"
+            )
 
     elif ext in (".go",):
+        # --- imports ---
         for m in _GO_IMPORT_RE.finditer(content):
             mod = m.group(1).split("/")[-1]
             mod_id = f"module:{mod}"
@@ -296,15 +574,34 @@ def _parse_generic(filepath: str, nodes: dict, edges: list, file_label: str):
                     id=mod_id, label=mod, type="module", file="(external)"
                 )
             edges.append(OntologyEdge(source=file_id, target=mod_id, type="imports"))
+
+        # --- functions: collect first, then extract calls ---
+        func_defs: list[tuple[str, str, re.Match]] = []
+        fn_name_set: set[str] = set()
+
         for m in _GO_FUNC_RE.finditer(content):
-            fn_id = f"function:{file_label}.{m.group(1)}"
+            fn_name = m.group(1)
+            fn_id = f"function:{file_label}.{fn_name}"
             line_no = content[: m.start()].count("\n") + 1
             nodes[fn_id] = OntologyNode(
-                id=fn_id, label=m.group(1), type="function", file=file_label, line=line_no
+                id=fn_id, label=fn_name, type="function", file=file_label, line=line_no
             )
             edges.append(OntologyEdge(source=file_id, target=fn_id, type="references"))
+            func_defs.append((fn_id, fn_name, m))
+            fn_name_set.add(fn_name)
+
+        for fn_id, fn_name, match in func_defs:
+            brace_pos = content.find("{", match.end())
+            if brace_pos == -1 or (brace_pos - match.end()) > 100:
+                continue
+            body = _extract_brace_body(content, brace_pos)
+            nodes[fn_id].lines = body.count("\n") + 1 if body.strip() else 0
+            _extract_calls_from_body(
+                body, fn_id, file_label, fn_name_set, nodes, edges, "function"
+            )
 
     elif ext in (".c", ".cpp", ".cc", ".h", ".hpp"):
+        # --- includes ---
         for m in _C_INCLUDE_RE.finditer(content):
             inc = m.group(1).split("/")[-1]
             mod_id = f"module:{inc}"
@@ -313,6 +610,11 @@ def _parse_generic(filepath: str, nodes: dict, edges: list, file_label: str):
                     id=mod_id, label=inc, type="module", file="(external)"
                 )
             edges.append(OntologyEdge(source=file_id, target=mod_id, type="imports"))
+
+        # --- functions: collect first, then extract calls ---
+        func_defs: list[tuple[str, str, re.Match]] = []
+        fn_name_set: set[str] = set()
+
         for m in _C_FUNC_RE.finditer(content):
             fn_name = m.group(1)
             if fn_name in ("if", "for", "while", "switch", "return", "main"):
@@ -323,6 +625,17 @@ def _parse_generic(filepath: str, nodes: dict, edges: list, file_label: str):
                 id=fn_id, label=fn_name, type="function", file=file_label, line=line_no
             )
             edges.append(OntologyEdge(source=file_id, target=fn_id, type="references"))
+            func_defs.append((fn_id, fn_name, m))
+            fn_name_set.add(fn_name)
+
+        for fn_id, fn_name, match in func_defs:
+            # C functions end with '{' in the regex, so brace is at match.end()-1
+            brace_pos = match.end() - 1
+            body = _extract_brace_body(content, brace_pos)
+            nodes[fn_id].lines = body.count("\n") + 1 if body.strip() else 0
+            _extract_calls_from_body(
+                body, fn_id, file_label, fn_name_set, nodes, edges, "function"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -330,34 +643,39 @@ def _parse_generic(filepath: str, nodes: dict, edges: list, file_label: str):
 # ---------------------------------------------------------------------------
 
 def _detect_communities(nodes: dict, edges: list) -> None:
-    """Assign cluster IDs via simple label propagation."""
-    node_ids = list(nodes.keys())
+    """Assign cluster IDs via deterministic label propagation.
+    Uses fixed seed and stable tie-breaking for reproducible results."""
+    node_ids = sorted(nodes.keys())  # sorted for determinism
     if not node_ids:
         return
     label_map = {nid: i for i, nid in enumerate(node_ids)}
 
-    # Build adjacency
+    # Build adjacency (sorted neighbors for determinism)
     adj: dict[str, list[str]] = {nid: [] for nid in node_ids}
     for e in edges:
         if e.source in adj and e.target in adj:
             adj[e.source].append(e.target)
             adj[e.target].append(e.source)
+    for nid in adj:
+        adj[nid] = sorted(set(adj[nid]))  # deduplicate and sort
 
-    # Iterate label propagation
+    # Iterate label propagation with fixed seed
     import random
+    rng = random.Random(42)  # fixed seed, isolated from global state
     for _ in range(10):
         order = list(node_ids)
-        random.shuffle(order)
+        rng.shuffle(order)
         for nid in order:
             neighbors = adj.get(nid, [])
             if not neighbors:
                 continue
-            # Most common label among neighbors
+            # Most common label among neighbors, with smallest label as tie-breaker
             counts: dict[int, int] = {}
             for nb in neighbors:
                 lbl = label_map[nb]
                 counts[lbl] = counts.get(lbl, 0) + 1
-            best = max(counts, key=lambda k: counts[k])
+            max_count = max(counts.values())
+            best = min(lbl for lbl, cnt in counts.items() if cnt == max_count)
             label_map[nid] = best
 
     # Remap to consecutive cluster indices
@@ -413,19 +731,403 @@ def _detect_cycles(nodes: dict, edges: list) -> int:
 # Dead code detection
 # ---------------------------------------------------------------------------
 
-def _detect_dead_code(nodes: dict, edges: list) -> int:
-    """Mark method/function nodes with zero incoming call/reference edges as dead."""
+_ENTRY_POINT_NAMES = frozenset({
+    # Python
+    "main", "__init__", "__new__", "__del__", "__call__",
+    "__enter__", "__exit__", "__aenter__", "__aexit__",
+    "__str__", "__repr__", "__len__", "__iter__", "__next__",
+    "__getitem__", "__setitem__", "__delitem__", "__contains__",
+    "__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__",
+    "__hash__", "__bool__", "__add__", "__sub__", "__mul__",
+    "__getattr__", "__setattr__", "__delattr__",
+    "__get__", "__set__", "__delete__",
+    "__init_subclass__", "__class_getitem__",
+    "setUp", "tearDown", "setUpClass", "tearDownClass",
+    # Java / JUnit
+    "toString", "equals", "hashCode", "compareTo", "clone",
+    "run", "call", "accept", "apply", "get",
+    # Go
+    "init", "Init",
+    # C / C++
+    "main",
+})
+
+_ENTRY_POINT_PREFIXES = (
+    # Python: test methods, event handlers, dunder
+    "test_", "test",
+    # General: event handlers, callbacks, lifecycle
+    "on_", "on",
+    "handle_", "handle",
+    "setup_", "setup",
+    "teardown_", "teardown",
+    # Web frameworks: Flask/Django/FastAPI route handlers
+    "get_", "post_", "put_", "delete_", "patch_",
+    # React / JS lifecycle & hooks
+    "use",
+    # Java: Spring/Servlet lifecycle
+    "do",
+)
+
+_ENTRY_POINT_SUFFIXES = (
+    # Java: Spring/Servlet patterns
+    "Handler", "Listener", "Callback", "Controller",
+    "Servlet", "Filter", "Interceptor",
+    # Python: Django/Flask
+    "_view", "_handler", "_callback",
+    "_task", "_job", "_command",
+)
+
+_ENTRY_POINT_DECORATORS_RE = re.compile(
+    r"@(?:app\.|router\.|blueprint\.)?(?:route|get|post|put|delete|patch|"
+    r"api_view|action|task|job|celery|"
+    r"pytest\.fixture|fixture|"
+    r"abstractmethod|overload|override|"
+    r"staticmethod|classmethod|property|"
+    r"click\.command|command|"
+    r"subscriber|listener|handler|hook|signal|event|"
+    r"Test|test|before_|after_|setup|teardown)",
+    re.IGNORECASE,
+)
+
+
+def _is_entry_point(node_id: str, node_label: str, file_content_cache: dict[str, str], node_file: str, node_line: int | None) -> bool:
+    """Check if a function/method is likely an entry point and should NOT be marked dead."""
+    # Extract the bare function name from label (e.g. "MyClass.myMethod()" → "myMethod")
+    name = node_label.rstrip("()")
+    if "." in name:
+        name = name.split(".")[-1]
+
+    # 1. Exact name match
+    if name in _ENTRY_POINT_NAMES:
+        return True
+
+    # 2. Prefix match
+    for prefix in _ENTRY_POINT_PREFIXES:
+        if name.startswith(prefix):
+            return True
+
+    # 3. Suffix match
+    for suffix in _ENTRY_POINT_SUFFIXES:
+        if name.endswith(suffix):
+            return True
+
+    # 4. Dunder methods (Python __xxx__)
+    if name.startswith("__") and name.endswith("__"):
+        return True
+
+    # 5. Check for decorator in source (if available)
+    if node_line and node_file and node_file != "(external)":
+        content = file_content_cache.get(node_file)
+        if content:
+            lines = content.split("\n")
+            # Check lines above the def/function declaration for decorators
+            start = max(0, node_line - 4)  # check up to 3 lines above
+            end = node_line  # line numbers are 1-based, so node_line-1 is the def line
+            above = "\n".join(lines[start:end])
+            if _ENTRY_POINT_DECORATORS_RE.search(above):
+                return True
+
+    return False
+
+
+def _detect_dead_code(nodes: dict, edges: list, file_content_cache: dict[str, str] | None = None) -> int:
+    """Mark method/function nodes with zero incoming call/reference edges as dead.
+    Excludes entry points (main, __init__, test_*, handlers, decorated, etc.)."""
+    if file_content_cache is None:
+        file_content_cache = {}
+
+    # Collect nodes that are actually called by other functions/methods.
+    # Exclude structural "ownership" edges that don't represent real usage:
+    #   - file → function/method (references): every function has this
+    #   - class → method (calls): Java parser emits this for class membership
+    # A function is "used" only if called by another function or method.
     targets: set[str] = set()
     for e in edges:
-        if e.type in ("calls", "references"):
-            targets.add(e.target)
+        src_node = nodes.get(e.source)
+        if not src_node:
+            continue
+        if e.type == "calls":
+            # Only count calls FROM functions/methods (not from classes)
+            if src_node.type in ("method", "function"):
+                targets.add(e.target)
+        elif e.type == "references":
+            if src_node.type in ("method", "function"):
+                targets.add(e.target)
 
     count = 0
     for nid, node in nodes.items():
         if node.type in ("method", "function") and nid not in targets:
+            if _is_entry_point(nid, node.label, file_content_cache, node.file, node.line):
+                continue  # entry point → not dead
             node.dead = True
             count += 1
     return count
+
+
+# ---------------------------------------------------------------------------
+# Improvement suggestion generation
+# ---------------------------------------------------------------------------
+
+def _generate_suggestions(
+    nodes: dict[str, OntologyNode],
+    edges: list[OntologyEdge],
+    vulnerabilities: list[Vulnerability],
+) -> list[Suggestion]:
+    """Analyze the graph and generate actionable code improvement suggestions."""
+    suggestions: list[Suggestion] = []
+    _priority_order = {"high": 0, "medium": 1, "low": 2}
+
+    # ---- Rule 1 & 2: High fan-in / fan-out (complexity) ----
+    for nid, node in nodes.items():
+        if node.type not in ("method", "function", "class"):
+            continue
+        # High fan-in → too many callers, god object risk
+        if node.fanIn >= 8:
+            pri = "high" if node.fanIn >= 12 else "medium"
+            suggestions.append(Suggestion(
+                id=f"high-fan-in:{nid}",
+                category="complexity",
+                priority=pri,
+                title=f"High fan-in ({node.fanIn}) on {node.label}",
+                description=(
+                    f"{node.label} is referenced by {node.fanIn} other nodes. "
+                    f"This indicates a central dependency — changes here will ripple widely. "
+                    f"Consider splitting responsibilities or introducing an abstraction layer."
+                ),
+                nodeIds=[nid],
+                file=node.file if node.file != "(external)" else None,
+            ))
+        # High fan-out → too many dependencies
+        if node.fanOut >= 8:
+            pri = "high" if node.fanOut >= 12 else "medium"
+            suggestions.append(Suggestion(
+                id=f"high-fan-out:{nid}",
+                category="complexity",
+                priority=pri,
+                title=f"High fan-out ({node.fanOut}) on {node.label}",
+                description=(
+                    f"{node.label} depends on {node.fanOut} other nodes. "
+                    f"Excessive outgoing dependencies make this hard to test and maintain. "
+                    f"Consider breaking it into smaller, focused functions."
+                ),
+                nodeIds=[nid],
+                file=node.file if node.file != "(external)" else None,
+            ))
+
+    # ---- Rule 3: Dead code (grouped by file) ----
+    dead_by_file: dict[str, list[OntologyNode]] = {}
+    for nid, node in nodes.items():
+        if node.dead and node.type in ("method", "function"):
+            dead_by_file.setdefault(node.file, []).append(node)
+    for file, dead_nodes in sorted(dead_by_file.items()):
+        names = ", ".join(n.label for n in dead_nodes[:5])
+        extra = f" and {len(dead_nodes) - 5} more" if len(dead_nodes) > 5 else ""
+        suggestions.append(Suggestion(
+            id=f"dead-code:{file}",
+            category="dead_code",
+            priority="low",
+            title=f"{len(dead_nodes)} dead function{'s' if len(dead_nodes) > 1 else ''} in {file.split('/')[-1]}",
+            description=(
+                f"Unreachable functions: {names}{extra}. "
+                f"These are never called by other functions in the analyzed codebase. "
+                f"Verify they are truly unused and consider removing them to reduce maintenance burden."
+            ),
+            nodeIds=[n.id for n in dead_nodes],
+            file=file if file != "(external)" else None,
+        ))
+
+    # ---- Rule 4: Circular dependencies ----
+    circular_nodes: set[str] = set()
+    for e in edges:
+        if e.circular:
+            circular_nodes.add(e.source)
+            circular_nodes.add(e.target)
+    if circular_nodes:
+        # Build connected components among circular nodes
+        circ_adj: dict[str, set[str]] = {n: set() for n in circular_nodes}
+        for e in edges:
+            if e.circular:
+                circ_adj[e.source].add(e.target)
+                circ_adj[e.target].add(e.source)
+        visited: set[str] = set()
+        cycle_groups: list[list[str]] = []
+        for start in sorted(circular_nodes):
+            if start in visited:
+                continue
+            group: list[str] = []
+            stack = [start]
+            while stack:
+                n = stack.pop()
+                if n in visited:
+                    continue
+                visited.add(n)
+                group.append(n)
+                for nb in sorted(circ_adj.get(n, set())):
+                    if nb not in visited:
+                        stack.append(nb)
+            cycle_groups.append(sorted(group))
+
+        for i, group in enumerate(cycle_groups):
+            labels = ", ".join(nodes[nid].label for nid in group[:5] if nid in nodes)
+            extra = f" and {len(group) - 5} more" if len(group) > 5 else ""
+            suggestions.append(Suggestion(
+                id=f"circular:{i}",
+                category="circular",
+                priority="high",
+                title=f"Circular dependency ({len(group)} nodes)",
+                description=(
+                    f"Cycle involves: {labels}{extra}. "
+                    f"Circular dependencies make the code hard to test, refactor, and reason about. "
+                    f"Consider dependency inversion, extracting shared interfaces, or reorganizing modules."
+                ),
+                nodeIds=group,
+                file=None,
+            ))
+
+    # ---- Rule 5: Large functions ----
+    for nid, node in nodes.items():
+        if node.type not in ("method", "function"):
+            continue
+        if node.lines >= 40:
+            pri = "high" if node.lines >= 80 else "medium"
+            suggestions.append(Suggestion(
+                id=f"large-function:{nid}",
+                category="large_function",
+                priority=pri,
+                title=f"{node.label} has {node.lines} lines",
+                description=(
+                    f"Long functions are harder to understand, test, and maintain. "
+                    f"Consider applying Extract Method refactoring to break it into "
+                    f"smaller, well-named helper functions with single responsibilities."
+                ),
+                nodeIds=[nid],
+                file=node.file if node.file != "(external)" else None,
+            ))
+
+    # ---- Rule 6: Hub nodes (high total connections) ----
+    for nid, node in nodes.items():
+        if node.type not in ("method", "function", "class"):
+            continue
+        total = node.fanIn + node.fanOut
+        # Skip if already reported as high fan-in or high fan-out individually
+        if total >= 15 and node.fanIn < 8 and node.fanOut < 8:
+            pri = "high" if total >= 20 else "medium"
+            suggestions.append(Suggestion(
+                id=f"hub:{nid}",
+                category="hub",
+                priority=pri,
+                title=f"{node.label} is a hub ({total} connections)",
+                description=(
+                    f"This node has {node.fanIn} incoming and {node.fanOut} outgoing connections. "
+                    f"Hub nodes are coupling hotspots — changes here affect many parts of the system. "
+                    f"Consider splitting into smaller modules or introducing a mediator pattern."
+                ),
+                nodeIds=[nid],
+                file=node.file if node.file != "(external)" else None,
+            ))
+
+    # ---- Rule 7: Security vulnerabilities by severity ----
+    vuln_by_severity: dict[str, list[Vulnerability]] = {}
+    for v in vulnerabilities:
+        vuln_by_severity.setdefault(v.severity, []).append(v)
+    severity_order = ["critical", "high", "medium", "low"]
+    for severity in severity_order:
+        group = vuln_by_severity.get(severity, [])
+        if not group:
+            continue
+        pri = "high" if severity in ("critical", "high") else ("medium" if severity == "medium" else "low")
+        files = sorted(set(v.file for v in group))
+        file_list = ", ".join(files[:3])
+        extra = f" and {len(files) - 3} more files" if len(files) > 3 else ""
+        suggestions.append(Suggestion(
+            id=f"vulnerability:{severity}",
+            category="vulnerability",
+            priority=pri,
+            title=f"{len(group)} {severity} security issue{'s' if len(group) > 1 else ''}",
+            description=(
+                f"Found in: {file_list}{extra}. "
+                f"Address {severity}-severity vulnerabilities promptly to prevent potential exploits. "
+                f"Review each finding and apply recommended fixes."
+            ),
+            nodeIds=sorted(set(v.nodeId for v in group)),
+            file=None,
+        ))
+
+    # ---- Rule 8: Deep inheritance chains ----
+    # Build extends graph: child → parent
+    extends_map: dict[str, str] = {}
+    for e in edges:
+        if e.type == "extends":
+            extends_map[e.source] = e.target
+
+    def _chain_depth(nid: str, visited: set[str] | None = None) -> list[str]:
+        chain = [nid]
+        if visited is None:
+            visited = set()
+        current = nid
+        while current in extends_map:
+            parent = extends_map[current]
+            if parent in visited:
+                break  # avoid infinite loop
+            visited.add(parent)
+            chain.append(parent)
+            current = parent
+        return chain
+
+    for nid in sorted(nodes.keys()):
+        node = nodes[nid]
+        if node.type != "class":
+            continue
+        chain = _chain_depth(nid)
+        if len(chain) >= 4:  # depth >= 3 means 4+ nodes in chain
+            labels = " -> ".join(
+                nodes[c].label if c in nodes else c for c in chain
+            )
+            suggestions.append(Suggestion(
+                id=f"deep-inheritance:{nid}",
+                category="inheritance",
+                priority="medium",
+                title=f"Deep inheritance ({len(chain) - 1} levels): {node.label}",
+                description=(
+                    f"Inheritance chain: {labels}. "
+                    f"Deep hierarchies increase coupling and reduce flexibility. "
+                    f"Consider 'Composition over Inheritance' — delegate behaviors to contained objects instead."
+                ),
+                nodeIds=[c for c in chain if c in nodes],
+                file=node.file if node.file != "(external)" else None,
+            ))
+
+    # ---- Rule 9: Wide interface (class with too many methods) ----
+    # Count methods per class: edges where class → method via "calls" (Java parser)
+    class_methods: dict[str, list[str]] = {}
+    for e in edges:
+        if e.type == "calls" and e.source in nodes and e.target in nodes:
+            src = nodes[e.source]
+            tgt = nodes[e.target]
+            if src.type == "class" and tgt.type == "method":
+                class_methods.setdefault(e.source, []).append(e.target)
+    for cls_id, method_ids in sorted(class_methods.items()):
+        count = len(method_ids)
+        if count >= 10:
+            cls = nodes[cls_id]
+            pri = "high" if count >= 15 else "medium"
+            suggestions.append(Suggestion(
+                id=f"wide-interface:{cls_id}",
+                category="wide_interface",
+                priority=pri,
+                title=f"{cls.label} has {count} methods",
+                description=(
+                    f"Classes with many methods may violate the Interface Segregation Principle. "
+                    f"Consider splitting into smaller, focused interfaces or extracting helper classes "
+                    f"to improve cohesion and testability."
+                ),
+                nodeIds=[cls_id] + method_ids[:5],
+                file=cls.file if cls.file != "(external)" else None,
+            ))
+
+    # Sort: priority (high first), then category
+    suggestions.sort(key=lambda s: (_priority_order.get(s.priority, 9), s.category, s.id))
+    return suggestions
 
 
 # ---------------------------------------------------------------------------
@@ -675,7 +1377,16 @@ MAX_FILE_SIZE = 512 * 1024  # 512 KB
 async def _scan_and_parse(root: str, file_list: list[str] | None = None):
     nodes: dict[str, OntologyNode] = {}
     edges: list[OntologyEdge] = []
+    file_content_cache: dict[str, str] = {}  # rel_path → file content (for dead-code decorator check)
     file_count = 0
+
+    def _read_and_cache(filepath: str, rel: str) -> None:
+        """Read file content and cache it for later dead-code analysis."""
+        try:
+            with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                file_content_cache[rel] = f.read()
+        except Exception:
+            pass
 
     if file_list:
         # Analyze only the specified files
@@ -692,6 +1403,7 @@ async def _scan_and_parse(root: str, file_list: list[str] | None = None):
             if file_count > MAX_FILES:
                 break
             rel = os.path.relpath(filepath, root).replace("\\", "/")
+            _read_and_cache(filepath, rel)
             if ext == ".java":
                 _parse_java(filepath, nodes, edges, rel)
             else:
@@ -717,6 +1429,7 @@ async def _scan_and_parse(root: str, file_list: list[str] | None = None):
                     break
 
                 rel = os.path.relpath(filepath, root).replace("\\", "/")
+                _read_and_cache(filepath, rel)
 
                 if ext == ".java":
                     _parse_java(filepath, nodes, edges, rel)
@@ -740,7 +1453,7 @@ async def _scan_and_parse(root: str, file_list: list[str] | None = None):
     _compute_sizes(nodes, unique_edges)
     _detect_communities(nodes, unique_edges)
     _detect_cycles(nodes, unique_edges)
-    _detect_dead_code(nodes, unique_edges)
+    _detect_dead_code(nodes, unique_edges, file_content_cache)
 
     # Semgrep scan — non-fatal: graph is returned even if scan fails
     vulnerabilities: list[Vulnerability] = []
@@ -753,7 +1466,11 @@ async def _scan_and_parse(root: str, file_list: list[str] | None = None):
         vuln_error = str(e)
         logger.warning("Semgrep scan failed (%s): %s", type(e).__name__, vuln_error)
 
-    return list(nodes.values()), unique_edges, vulnerabilities, vuln_error
+    # Generate improvement suggestions based on all analysis results
+    suggestions = _generate_suggestions(nodes, unique_edges, vulnerabilities)
+    logger.info("Generated %d improvement suggestions", len(suggestions))
+
+    return list(nodes.values()), unique_edges, vulnerabilities, vuln_error, suggestions
 
 
 # ---------------------------------------------------------------------------
@@ -765,11 +1482,12 @@ async def analyze_ontology(req: AnalyzeRequest):
     folder = req.path
     if not os.path.isdir(folder):
         raise HTTPException(status_code=400, detail=f"Not a directory: {folder}")
-    nodes, edges, vulnerabilities, vuln_error = await _scan_and_parse(folder, req.files)
+    nodes, edges, vulnerabilities, vuln_error, suggestions = await _scan_and_parse(folder, req.files)
     result = {
         "nodes": [n.model_dump() for n in nodes],
         "edges": [e.model_dump() for e in edges],
         "vulnerabilities": [v.model_dump() for v in vulnerabilities],
+        "suggestions": [s.model_dump() for s in suggestions],
     }
     if vuln_error:
         result["vulnError"] = vuln_error

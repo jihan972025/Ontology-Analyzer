@@ -46,6 +46,15 @@ export function analyzeOntology(folderPath: string, files?: string[]) {
       file: string
       nodeId: string
     }[]
+    suggestions: {
+      id: string
+      category: string
+      priority: string
+      title: string
+      description: string
+      nodeIds: string[]
+      file: string | null
+    }[]
     vulnError?: string
   }>('/api/ontology/analyze', {
     method: 'POST',
