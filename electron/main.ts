@@ -56,6 +56,21 @@ function stopBackend() {
   }
 }
 
+function getIconPath(): string | undefined {
+  if (isDev) {
+    const devIcon = path.join(__dirname, '..', 'assets', 'icon.ico')
+    if (fs.existsSync(devIcon)) return devIcon
+    const devPng = path.join(__dirname, '..', 'assets', 'icon.png')
+    if (fs.existsSync(devPng)) return devPng
+  } else {
+    const prodIcon = path.join(process.resourcesPath, 'assets', 'icon.ico')
+    if (fs.existsSync(prodIcon)) return prodIcon
+    const prodPng = path.join(process.resourcesPath, 'assets', 'icon.png')
+    if (fs.existsSync(prodPng)) return prodPng
+  }
+  return undefined
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -63,6 +78,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: `Ontology Analyzer v${getDisplayVersion()}`,
+    icon: getIconPath(),
     backgroundColor: '#0f172a',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

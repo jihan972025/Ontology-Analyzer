@@ -22,6 +22,7 @@ extraResources:
     to: semgrep/
 
 win:
+  icon: assets/icon.ico
   target:
     - target: nsis
       arch:
