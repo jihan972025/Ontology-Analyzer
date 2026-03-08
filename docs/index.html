@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -170,6 +170,7 @@
     <a class="nav-link active" href="#introduction">Introduction</a>
     <a class="nav-link" href="#supported-languages">Supported Languages</a>
     <a class="nav-link" href="#architecture">Architecture</a>
+    <a class="nav-link" href="#file-input">Opening &amp; Adding Files</a>
   </div>
 
   <div class="nav-group">
@@ -233,12 +234,15 @@
     <h1><span class="icon">&#x1F52C;</span>Ontology Analyzer</h1>
     <p class="subtitle">AST-based code structure visualization, security scanning & LLM-assisted analysis</p>
     <p>
-      Ontology Analyzer는 소스 코드의 클래스, 메소드, 함수 간 관계를 시각적으로 분석하는 데스크톱 도구입니다.
-      폴더를 선택하면 코드를 파싱하여 호출 관계, 상속 구조, import 의존성을 그래프로 렌더링합니다.
+      Ontology Analyzer is a desktop tool for visually analyzing relationships between classes, methods, and functions in source code.
+      Select a folder and it will parse the code, rendering call relationships, inheritance structures, and import dependencies as an interactive graph.
     </p>
     <p>
-      Electron + React 프론트엔드와 Python FastAPI 백엔드로 구성되며, 모든 의존성이 번들되어 <strong>오프라인 환경에서도 설치 즉시 사용 가능</strong>합니다.
+      Built with an Electron + React frontend and Python FastAPI backend, all dependencies are bundled so it is <strong>ready to use immediately after installation, even in offline environments</strong>.
     </p>
+    <div style="margin-top: 20px;">
+      <img src="screenshot.png" alt="Ontology Analyzer Screenshot" style="width: 100%; border-radius: 8px; border: 1px solid #1e293b;" />
+    </div>
   </div>
 
   <hr class="divider" />
@@ -284,29 +288,64 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
   <hr class="divider" />
 
+  <!-- ──── Opening & Adding Files ──── -->
+  <div class="section" id="file-input">
+    <h2><span class="section-icon">&#x1F4C2;</span>Opening &amp; Adding Files</h2>
+    <p>Ontology Analyzer provides three ways to load source code for analysis:</p>
+
+    <h3>Open Folder</h3>
+    <p>
+      Click the <strong>Open Folder</strong> button to select an entire project directory.
+      All supported source files within the folder (and its subdirectories) will be recursively scanned and analyzed.
+      This is the recommended way to analyze a complete project.
+    </p>
+
+    <h3>Open Files</h3>
+    <p>
+      Click the <strong>Open Files</strong> button to select one or more individual source files.
+      A file picker dialog opens with filters for supported source file types
+      (<code>.java</code>, <code>.py</code>, <code>.ts</code>, <code>.tsx</code>, <code>.js</code>, <code>.jsx</code>, <code>.mjs</code>, <code>.go</code>, <code>.c</code>, <code>.cpp</code>, <code>.cc</code>, <code>.h</code>, <code>.hpp</code>).
+      The selected files replace the current analysis.
+    </p>
+
+    <h3>Add Files</h3>
+    <p>
+      Click the <strong>Add Files</strong> button to append additional source files to the current analysis
+      without clearing the existing graph. This is useful for incrementally expanding the scope of analysis
+      by adding related files from different directories.
+    </p>
+
+    <div class="note">
+      You can also switch between "All Files" and specific file type filters in the file picker dialog.
+      The analysis begins automatically once files or a folder are selected.
+    </div>
+  </div>
+
+  <hr class="divider" />
+
   <!-- ──── Circular Dependency Detection ──── -->
   <div class="section" id="circular-deps">
     <h2><span class="section-icon">&#x1F534;</span>Circular Dependency Detection</h2>
     <p>
-      순환 import/호출 관계를 DFS back-edge 알고리즘으로 자동 감지합니다.
-      순환 참조가 발견되면 해당 엣지가 <strong class="text-red">빨간색 점선</strong>으로 하이라이트되고,
-      관련 노드 사이의 연결선이 강조 표시됩니다.
+      Automatically detects circular import/call relationships using a DFS back-edge algorithm.
+      When a circular reference is found, the edge is highlighted as a <strong class="text-red">red dashed line</strong>,
+      and the connections between related nodes are emphasized.
     </p>
     <p>
-      우측 상단의 <span class="badge badge-red">N cycles</span> 배지를 클릭하면 순환 참조 노드를 순차적으로 탐색할 수 있습니다.
-      노드 클릭 시 우측 속성창에 Cycle Path(순환 경로)가 BFS 기반으로 표시됩니다.
+      Click the <span class="badge badge-red">N cycles</span> badge in the top-right corner to navigate through circular dependency nodes sequentially.
+      Clicking a node displays the Cycle Path in the right-side Properties panel, calculated using BFS.
     </p>
 
-    <h3>순환 참조의 문제점</h3>
+    <h3>Problems with Circular Dependencies</h3>
     <ul>
-      <li>무한 루프 위험</li>
-      <li>단위 테스트 어려움</li>
-      <li>변경 영향 확산 (ripple effect)</li>
-      <li>빌드 순서 문제</li>
-      <li>코드 가독성 저하 및 재사용성 감소</li>
+      <li>Risk of infinite loops</li>
+      <li>Difficulty with unit testing</li>
+      <li>Change propagation (ripple effect)</li>
+      <li>Build order issues</li>
+      <li>Reduced code readability and reusability</li>
     </ul>
 
-    <div class="note">순환 참조 해결 방법: 인터페이스 추출(Dependency Inversion), 중재자 패턴(Mediator), 이벤트 기반 분리 등을 검토하세요.</div>
+    <div class="note">Resolution strategies: Consider Dependency Inversion (extracting interfaces), Mediator Pattern, or event-driven decoupling.</div>
   </div>
 
   <hr class="divider" />
@@ -315,16 +354,16 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="dead-code">
     <h2><span class="section-icon">&#x1F47B;</span>Dead Code Detection</h2>
     <p>
-      어디에서도 호출/참조되지 않는 메소드/함수를 탐지합니다.
-      Fan-in(incoming 호출 수)이 0인 노드를 데드 코드로 판정하여
-      <strong class="text-slate">회색, 점선 테두리, 낮은 불투명도</strong>로 표시합니다.
+      Detects methods and functions that are never called or referenced anywhere.
+      Nodes with a Fan-in (incoming call count) of 0 are classified as dead code and displayed with
+      <strong class="text-slate">gray color, dashed borders, and low opacity</strong>.
     </p>
     <p>
-      우측 상단의 <span class="badge badge-slate">N dead</span> 배지를 클릭하면 데드 코드 노드를 순차 탐색합니다.
+      Click the <span class="badge badge-slate">N dead</span> badge in the top-right corner to navigate through dead code nodes sequentially.
     </p>
 
     <div class="warning">
-      Entry point(main 함수), 이벤트 핸들러, 리플렉션 호출, 외부 API 엔드포인트 등은 실제로 사용되지만 정적 분석에서 데드 코드로 오탐될 수 있습니다.
+      Entry points (main functions), event handlers, reflection-based calls, and external API endpoints may be flagged as dead code by static analysis even though they are actually used (false positives).
     </div>
   </div>
 
@@ -334,25 +373,25 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="impact-analysis">
     <h2><span class="section-icon">&#x26A1;</span>Impact Analysis</h2>
     <p>
-      특정 노드를 클릭하면 해당 노드 변경 시 영향 받는 노드들을 <strong>BFS 3단계</strong>로 탐색하여 하이라이트합니다.
+      Click any node to highlight all nodes that would be affected by changes, explored via <strong>3-level BFS traversal</strong>.
     </p>
 
     <div class="grid-3">
       <div class="card" style="border-color: #f97316;">
-        <div class="card-title text-orange">1차</div>
-        <div class="card-desc">직접 호출 — 가장 강한 영향</div>
+        <div class="card-title text-orange">Level 1</div>
+        <div class="card-desc">Direct callers — strongest impact</div>
       </div>
       <div class="card" style="border-color: #78350f;">
-        <div class="card-title" style="color: #d97706;">2차</div>
-        <div class="card-desc">간접 영향</div>
+        <div class="card-title" style="color: #d97706;">Level 2</div>
+        <div class="card-desc">Indirect impact</div>
       </div>
       <div class="card" style="border-color: #451a03;">
-        <div class="card-title" style="color: #92400e;">3차</div>
-        <div class="card-desc">파급 영향</div>
+        <div class="card-title" style="color: #92400e;">Level 3</div>
+        <div class="card-desc">Ripple effect</div>
       </div>
     </div>
 
-    <p>우측 속성창의 Impact Analysis 섹션에서 각 단계별 영향 노드 목록을 확인하고 클릭하여 이동할 수 있습니다.</p>
+    <p>View the list of affected nodes at each level in the Impact Analysis section of the right-side Properties panel. Click any node in the list to navigate to it.</p>
   </div>
 
   <hr class="divider" />
@@ -361,41 +400,41 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="complexity">
     <h2><span class="section-icon">&#x1F4CA;</span>Complexity Metrics</h2>
 
-    <h3>측정 항목</h3>
+    <h3>Measured Metrics</h3>
     <table>
       <thead>
         <tr><th>Metric</th><th>Description</th><th>Calculation</th></tr>
       </thead>
       <tbody>
-        <tr><td><strong class="highlight">Fan-in</strong></td><td>이 노드를 호출하는 수</td><td>Incoming calls/references 엣지 수</td></tr>
-        <tr><td><strong class="highlight">Fan-out</strong></td><td>이 노드가 호출하는 수</td><td>Outgoing calls/references 엣지 수</td></tr>
-        <tr><td><strong class="highlight">Lines</strong></td><td>메소드 본문 라인 수</td><td>{ } 매칭으로 계산</td></tr>
+        <tr><td><strong class="highlight">Fan-in</strong></td><td>Number of callers to this node</td><td>Count of incoming calls/references edges</td></tr>
+        <tr><td><strong class="highlight">Fan-out</strong></td><td>Number of calls from this node</td><td>Count of outgoing calls/references edges</td></tr>
+        <tr><td><strong class="highlight">Lines</strong></td><td>Lines of code in method body</td><td>Calculated by { } brace matching</td></tr>
       </tbody>
     </table>
 
-    <h3>시각적 반영</h3>
+    <h3>Visual Representation</h3>
     <ul>
-      <li><strong>노드 크기</strong> &#8212; 연결 수(connections)에 비례: 연결 많은 노드 &#8594; 큰 원</li>
-      <li><strong>노드 색상</strong> &#8212; Fan-in + Fan-out 합산으로 히트맵:
+      <li><strong>Node size</strong> &#8212; Proportional to number of connections: more connections &#8594; larger circle</li>
+      <li><strong>Node color</strong> &#8212; Heatmap based on Fan-in + Fan-out combined:
         <ul>
-          <li><span class="text-blue">낮음 (0~2)</span> &#8594; 클러스터 기본 색상</li>
-          <li><span class="text-orange">중간 (3~5)</span> &#8594; 주황 블렌딩</li>
-          <li><span class="text-red">높음 (6+)</span> &#8594; 빨간/주황 강조</li>
+          <li><span class="text-blue">Low (0–2)</span> &#8594; Default cluster color</li>
+          <li><span class="text-orange">Medium (3–5)</span> &#8594; Orange blending</li>
+          <li><span class="text-red">High (6+)</span> &#8594; Red/orange emphasis</li>
         </ul>
       </li>
     </ul>
 
-    <h3>복잡도가 높은 노드의 문제점</h3>
+    <h3>Issues with High-Complexity Nodes</h3>
     <ul>
-      <li><strong class="text-orange">Fan-in 높음</strong> &#8594; 많은 곳에서 의존 &#8594; 변경 시 영향 범위 큼</li>
-      <li><strong class="text-orange">Fan-out 높음</strong> &#8594; 많은 것에 의존 &#8594; 하나 바뀌면 깨질 가능성 높음</li>
-      <li><strong class="text-orange">Lines 높음</strong> &#8594; 메소드가 너무 김 &#8594; 분리(Extract Method) 검토</li>
-      <li><strong class="text-red">Fan-in + Fan-out 모두 높음</strong> &#8594; "God Method" &#8594; 리팩토링 최우선 대상</li>
+      <li><strong class="text-orange">High Fan-in</strong> &#8594; Many dependents &#8594; Large blast radius when changed</li>
+      <li><strong class="text-orange">High Fan-out</strong> &#8594; Many dependencies &#8594; High risk of breakage when any dependency changes</li>
+      <li><strong class="text-orange">High Lines</strong> &#8594; Method is too long &#8594; Consider Extract Method refactoring</li>
+      <li><strong class="text-red">Both Fan-in + Fan-out high</strong> &#8594; "God Method" &#8594; Top priority for refactoring</li>
     </ul>
 
     <div class="note">
-      활용법: 그래프에서 크고 붉은 노드를 찾으면 복잡도 높은 핵심 코드입니다.
-      Fan-out 10 이상이면 책임 분리, Lines 50 이상이면 메소드 분할을 검토하세요.
+      Tip: Look for large, red-colored nodes in the graph — these are high-complexity core code.
+      Consider separating responsibilities if Fan-out ≥ 10, and splitting the method if Lines ≥ 50.
     </div>
   </div>
 
@@ -405,39 +444,39 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="suggestions">
     <h2><span class="section-icon">&#x1F4A1;</span>Code Suggestions</h2>
     <p>
-      분석 완료 후 코드 품질 개선을 위한 자동 제안을 생성합니다.
-      우측 상단의 <span class="badge badge-yellow">N tips</span> 배지를 클릭하면 제안 패널이 열립니다.
+      After analysis completes, automated suggestions for improving code quality are generated.
+      Click the <span class="badge badge-yellow">N tips</span> badge in the top-right corner to open the suggestions panel.
     </p>
 
-    <h3>감지 규칙 (9가지)</h3>
+    <h3>Detection Rules (9 types)</h3>
     <table>
       <thead>
         <tr><th>Category</th><th>Detection Condition</th><th>Priority</th></tr>
       </thead>
       <tbody>
-        <tr><td><strong class="text-red">Circular Deps</strong></td><td>순환 참조 edge 연결 컴포넌트</td><td><span class="badge badge-red">High</span></td></tr>
-        <tr><td><strong class="text-red">Security</strong></td><td>Semgrep 취약점 severity별 그룹</td><td><span class="badge badge-red">High~Low</span></td></tr>
+        <tr><td><strong class="text-red">Circular Deps</strong></td><td>Connected components with circular reference edges</td><td><span class="badge badge-red">High</span></td></tr>
+        <tr><td><strong class="text-red">Security</strong></td><td>Semgrep vulnerabilities grouped by severity</td><td><span class="badge badge-red">High~Low</span></td></tr>
         <tr><td><strong class="text-orange">High Fan-In</strong></td><td>Fan-in &ge; 8 (medium), &ge; 12 (high)</td><td><span class="badge badge-orange">Med~High</span></td></tr>
         <tr><td><strong class="text-orange">High Fan-Out</strong></td><td>Fan-out &ge; 8 (medium), &ge; 12 (high)</td><td><span class="badge badge-orange">Med~High</span></td></tr>
         <tr><td><strong class="text-orange">Large Function</strong></td><td>Lines &ge; 40 (medium), &ge; 80 (high)</td><td><span class="badge badge-orange">Med~High</span></td></tr>
-        <tr><td><strong class="text-orange">Hub Node</strong></td><td>Fan-in + Fan-out &ge; 15 (개별 &lt; 8)</td><td><span class="badge badge-orange">Med~High</span></td></tr>
+        <tr><td><strong class="text-orange">Hub Node</strong></td><td>Fan-in + Fan-out &ge; 15 (each &lt; 8)</td><td><span class="badge badge-orange">Med~High</span></td></tr>
         <tr><td><strong class="text-yellow">Deep Inheritance</strong></td><td>extends chain depth &ge; 3</td><td><span class="badge badge-yellow">Medium</span></td></tr>
         <tr><td><strong class="text-yellow">Wide Interface</strong></td><td>Class methods &ge; 10 (med), &ge; 15 (high)</td><td><span class="badge badge-yellow">Med~High</span></td></tr>
-        <tr><td><strong class="text-slate">Dead Code</strong></td><td>호출되지 않는 함수 (파일별 그룹)</td><td><span class="badge badge-slate">Low</span></td></tr>
+        <tr><td><strong class="text-slate">Dead Code</strong></td><td>Unreferenced functions (grouped by file)</td><td><span class="badge badge-slate">Low</span></td></tr>
       </tbody>
     </table>
 
-    <h3>제안 패널 사용법</h3>
+    <h3>Using the Suggestions Panel</h3>
     <ul>
-      <li><strong>카테고리 필터</strong> &#8212; 상단 탭으로 특정 카테고리만 필터링</li>
-      <li><strong>카드 확장</strong> &#8212; 제안 카드 클릭 시 상세 설명과 관련 노드 목록이 펼쳐집니다</li>
-      <li><strong>노드 이동</strong> &#8212; 관련 노드 클릭 시 해당 노드로 포커스 이동</li>
-      <li><strong>우선순위 색상</strong> &#8212; <span class="text-red">빨강</span> = High, <span class="text-orange">주황</span> = Medium, <span class="text-slate">회색</span> = Low</li>
+      <li><strong>Category filter</strong> &#8212; Use top tabs to filter by specific category</li>
+      <li><strong>Expand card</strong> &#8212; Click a suggestion card to expand detailed description and related node list</li>
+      <li><strong>Navigate to node</strong> &#8212; Click a related node to focus and navigate to it on the graph</li>
+      <li><strong>Priority colors</strong> &#8212; <span class="text-red">Red</span> = High, <span class="text-orange">Orange</span> = Medium, <span class="text-slate">Gray</span> = Low</li>
     </ul>
 
     <div class="note">
-      제안은 정적 분석 기반 휴리스틱이므로 프로젝트 특성에 따라 조정이 필요할 수 있습니다.
-      유틸리티 함수의 높은 Fan-in은 정상적일 수 있으며, 테스트 코드의 Dead Code 판정은 오탐일 수 있습니다.
+      Suggestions are heuristic-based static analysis results and may need adjustment based on project characteristics.
+      High Fan-in for utility functions may be normal, and Dead Code detection in test code may be a false positive.
     </div>
   </div>
 
@@ -447,17 +486,17 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="vulnerability-scan">
     <h2><span class="section-icon">&#x1F6E1;</span>Vulnerability Scanning (Semgrep)</h2>
     <p>
-      코드 보안 취약점 탐지에 <strong>Semgrep</strong> (오픈소스 AST 기반 SAST 도구)를 사용합니다.
-      번들된 커스텀 룰과 Semgrep 커뮤니티가 관리하는 수천 개의 보안 규칙을 적용합니다.
+      Uses <strong>Semgrep</strong> (an open-source AST-based SAST tool) for code security vulnerability detection.
+      Applies bundled custom rules along with thousands of security rules maintained by the Semgrep community.
     </p>
     <p>
-      취약점이 있는 노드에는 <strong class="text-red">빨간 점 인디케이터</strong>가 표시됩니다.
-      우측 상단 <span class="badge badge-red">N vulns</span> 배지 클릭으로 취약 노드를 순차 탐색하고,
-      노드 클릭 시 속성창의 Security Issues 섹션에서 상세 내용을 확인합니다.
+      Nodes with vulnerabilities display a <strong class="text-red">red dot indicator</strong>.
+      Click the <span class="badge badge-red">N vulns</span> badge in the top-right corner to navigate through vulnerable nodes sequentially,
+      and click a node to view detailed information in the Security Issues section of the Properties panel.
     </p>
 
     <div class="note">
-      패키지 인스톨러에 Semgrep이 번들되어 있어 별도 설치 없이 바로 사용할 수 있습니다.
+      Semgrep is bundled with the installer, so it works out of the box without any additional installation.
     </div>
   </div>
 
@@ -471,9 +510,9 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
         <tr><th>Semgrep Level</th><th>Display Severity</th><th>Description</th></tr>
       </thead>
       <tbody>
-        <tr><td><strong class="text-red">ERROR</strong></td><td><span class="badge badge-red">Critical</span></td><td>원격 코드 실행(RCE) 또는 데이터 완전 탈취 가능</td></tr>
-        <tr><td><strong class="text-orange">WARNING</strong></td><td><span class="badge badge-orange">High</span></td><td>파일 시스템 접근, 데이터 유출, 보안 우회 가능</td></tr>
-        <tr><td><strong class="text-yellow">INFO</strong></td><td><span class="badge badge-yellow">Medium</span></td><td>보안 약점이나 추가 조건 필요한 취약점</td></tr>
+        <tr><td><strong class="text-red">ERROR</strong></td><td><span class="badge badge-red">Critical</span></td><td>Remote Code Execution (RCE) or full data exfiltration possible</td></tr>
+        <tr><td><strong class="text-orange">WARNING</strong></td><td><span class="badge badge-orange">High</span></td><td>File system access, data leakage, or security bypass possible</td></tr>
+        <tr><td><strong class="text-yellow">INFO</strong></td><td><span class="badge badge-yellow">Medium</span></td><td>Security weakness or vulnerability requiring additional conditions</td></tr>
       </tbody>
     </table>
   </div>
@@ -496,7 +535,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
       </tbody>
     </table>
 
-    <h3>지원 언어</h3>
+    <h3>Supported Languages</h3>
     <div class="grid-4">
       <div class="card"><div class="card-title">Java</div></div>
       <div class="card"><div class="card-title">Python</div></div>
@@ -507,7 +546,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
       <div class="card"><div class="card-title">Kotlin</div></div>
       <div class="card"><div class="card-title">PHP</div></div>
     </div>
-    <p class="text-slate" style="font-size:12px;">AST 기반 분석으로 regex보다 정확한 탐지가 가능합니다. 30+ 언어를 지원합니다.</p>
+    <p class="text-slate" style="font-size:12px;">AST-based analysis provides more accurate detection than regex. Supports 30+ languages.</p>
   </div>
 
   <hr class="divider" />
@@ -536,19 +575,19 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <!-- ──── Layout Modes ──── -->
   <div class="section" id="layout-modes">
     <h2><span class="section-icon">&#x1F4D0;</span>Layout Modes</h2>
-    <p>우측 하단의 <kbd class="kbd">F</kbd> <kbd class="kbd">T</kbd> <kbd class="kbd">R</kbd> 버튼으로 3가지 레이아웃을 전환합니다:</p>
+    <p>Switch between 3 layout modes using the <kbd class="kbd">F</kbd> <kbd class="kbd">T</kbd> <kbd class="kbd">R</kbd> buttons in the bottom-right corner:</p>
     <div class="grid-3">
       <div class="card">
         <div class="card-title text-purple">Force (F)</div>
-        <div class="card-desc">물리 시뮬레이션 기반<br/>연결된 노드끼리 가까이 배치</div>
+        <div class="card-desc">Physics simulation-based<br/>Connected nodes placed close together</div>
       </div>
       <div class="card">
         <div class="card-title text-blue">Tree (T)</div>
-        <div class="card-desc">좌&#8594;우 트리 구조<br/>호출 깊이 기반 수평 배치</div>
+        <div class="card-desc">Left-to-right tree structure<br/>Horizontal layout based on call depth</div>
       </div>
       <div class="card">
         <div class="card-title text-green">Radial (R)</div>
-        <div class="card-desc">방사형 레이아웃<br/>중심 노드에서 동심원 배치</div>
+        <div class="card-desc">Radial layout<br/>Concentric circles from center node</div>
       </div>
     </div>
   </div>
@@ -559,8 +598,8 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="search">
     <h2><span class="section-icon">&#x1F50E;</span>Node Search</h2>
     <p>
-      <kbd class="kbd">Ctrl+F</kbd> 또는 우측 하단 검색 버튼을 클릭하면 검색바가 열립니다.
-      클래스명, 메소드명을 입력하면 매칭되는 노드 목록이 표시되고, 클릭 시 해당 노드로 이동합니다.
+      Press <kbd class="kbd">Ctrl+F</kbd> or click the search button in the bottom-right corner to open the search bar.
+      Type a class or method name to display matching nodes, and click any result to navigate to that node on the graph.
     </p>
   </div>
 
@@ -570,8 +609,8 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="minimap">
     <h2><span class="section-icon">&#x1F5FA;</span>Minimap</h2>
     <p>
-      캔버스 우하단에 전체 그래프의 축소 뷰가 표시됩니다.
-      파란 사각형이 현재 보이는 영역을 나타내며, <strong>드래그</strong>하여 빠르게 다른 영역으로 이동할 수 있습니다.
+      A miniaturized view of the entire graph is displayed in the bottom-right corner of the canvas.
+      The blue rectangle represents the currently visible area, and you can <strong>drag</strong> it to quickly navigate to a different region.
     </p>
   </div>
 
@@ -581,8 +620,8 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="code-preview">
     <h2><span class="section-icon">&#x1F4BB;</span>Code Preview</h2>
     <p>
-      노드 위에 마우스를 올리면 해당 메소드/함수의 소스 코드 일부가 툴팁으로 표시됩니다.
-      파일명, 라인 번호와 함께 전후 5줄의 코드를 미리 볼 수 있습니다.
+      Hover over a node to display a tooltip showing a portion of the method/function source code.
+      The preview includes the file name, line number, and 5 lines of surrounding code context.
     </p>
   </div>
 
@@ -592,8 +631,8 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="inheritance-tree">
     <h2><span class="section-icon">&#x1F333;</span>Inheritance Tree</h2>
     <p>
-      우측 하단 GitBranch 버튼을 클릭하면 <strong>extends/implements</strong> 관계만 필터링하여
-      클래스 계층 구조를 시각화합니다. 상속 관계에 관여하는 노드만 표시됩니다.
+      Click the GitBranch button in the bottom-right corner to filter only <strong>extends/implements</strong> relationships
+      and visualize the class hierarchy. Only nodes involved in inheritance relationships are displayed.
     </p>
   </div>
 
@@ -603,11 +642,11 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="method-trace">
     <h2><span class="section-icon">&#x1F517;</span>Method Trace</h2>
     <p>
-      우측 하단 Route 버튼을 클릭하면 메소드명을 입력하여 <strong>양방향 호출 체인</strong>을 추적합니다.
-      선택한 메소드를 중심으로 호출자(callers)와 피호출자(callees)를 재귀적으로 탐색합니다.
+      Click the Route button in the bottom-right corner to enter a method name and trace its <strong>bidirectional call chain</strong>.
+      Recursively explores callers and callees centered on the selected method.
     </p>
     <p>
-      트레이스 결과는 전용 레이아웃으로 표시되며, 관련된 노드와 엣지만 <strong class="text-green">초록색</strong>으로 하이라이트됩니다.
+      Trace results are displayed in a dedicated layout, with only related nodes and edges highlighted in <strong class="text-green">green</strong>.
     </p>
   </div>
 
@@ -616,30 +655,30 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <!-- ──── Mermaid Diagrams ──── -->
   <div class="section" id="mermaid-diagrams">
     <h2><span class="section-icon">&#x1F4C8;</span>Mermaid Diagrams</h2>
-    <p>분석된 코드 구조를 3가지 다이어그램으로 내보낼 수 있습니다.</p>
+    <p>Export analyzed code structures as 3 types of diagrams.</p>
 
     <div class="grid-3">
       <div class="card">
         <div class="card-title text-purple">Class Diagram</div>
-        <div class="card-desc">클래스/인터페이스 관계<br/>상속, 구현, 메소드</div>
+        <div class="card-desc">Class/interface relationships<br/>Inheritance, implementation, methods</div>
       </div>
       <div class="card">
         <div class="card-title text-blue">Flowchart</div>
-        <div class="card-desc">호출 그래프<br/>메소드/함수/클래스 간 흐름</div>
+        <div class="card-desc">Call graph<br/>Flow between methods/functions/classes</div>
       </div>
       <div class="card">
         <div class="card-title text-green">Sequence Diagram</div>
-        <div class="card-desc">호출 순서<br/>참여자 간 순차 호출</div>
+        <div class="card-desc">Call order<br/>Sequential calls between participants</div>
       </div>
     </div>
 
-    <h3>사용법</h3>
+    <h3>Usage</h3>
     <ol>
-      <li>우측 하단 Mermaid 버튼 클릭</li>
-      <li>다이어그램 타입 선택: Class / Flowchart / Sequence</li>
-      <li>인터랙티브 프리뷰에서 확대/축소, 검색</li>
-      <li>파일 리스트에서 특정 파일 클릭하여 필터링</li>
-      <li><strong>Copy</strong> 버튼으로 Mermaid 코드 복사</li>
+      <li>Click the Mermaid button in the bottom-right corner</li>
+      <li>Select diagram type: Class / Flowchart / Sequence</li>
+      <li>Zoom in/out and search in the interactive preview</li>
+      <li>Click specific files in the file list to filter</li>
+      <li>Use the <strong>Copy</strong> button to copy the Mermaid code</li>
     </ol>
   </div>
 
@@ -649,8 +688,8 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="png-export">
     <h2><span class="section-icon">&#x1F4F7;</span>PNG Export</h2>
     <p>
-      우측 하단 다운로드 버튼을 클릭하면 현재 그래프를 PNG 이미지로 저장합니다.
-      캔버스에 렌더링된 상태 그대로 내보내집니다.
+      Click the download button in the bottom-right corner to save the current graph as a PNG image.
+      The graph is exported exactly as rendered on the canvas.
     </p>
   </div>
 
@@ -660,16 +699,16 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <div class="section" id="llm-chat">
     <h2><span class="section-icon">&#x1F916;</span>LLM Chat</h2>
     <p>
-      코드 분석 결과를 컨텍스트로 활용하여 AI와 대화할 수 있습니다.
-      Chat 아이콘을 클릭하면 채팅 패널이 열리며, 그래프 요약, 선택된 노드, 취약점 정보가 자동으로 포함됩니다.
+      Chat with AI using code analysis results as context.
+      Click the Chat icon to open the chat panel, which automatically includes graph summaries, selected node details, and vulnerability information.
     </p>
 
-    <h3>사용법</h3>
+    <h3>Usage</h3>
     <ol>
-      <li>Chat 아이콘 클릭으로 채팅 패널 열기</li>
-      <li>Settings 아이콘으로 LLM 프로바이더 설정</li>
-      <li>코드 구조, 의존성, 보안 이슈에 대해 질문</li>
-      <li>스트리밍 응답으로 실시간 출력 확인</li>
+      <li>Click the Chat icon to open the chat panel</li>
+      <li>Configure the LLM provider via the Settings icon</li>
+      <li>Ask questions about code structure, dependencies, and security issues</li>
+      <li>View real-time output via streaming responses</li>
     </ol>
   </div>
 
@@ -690,7 +729,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
       </tbody>
     </table>
 
-    <div class="note">LLM 채팅은 API 엔드포인트에 대한 네트워크 접근이 필요합니다. Ollama를 사용하면 완전 오프라인 환경에서도 LLM 채팅을 사용할 수 있습니다.</div>
+    <div class="note">LLM chat requires network access to the API endpoint. Using Ollama enables LLM chat even in fully offline environments.</div>
   </div>
 
   <hr class="divider" />
@@ -718,7 +757,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <!-- ──── POST /analyze ──── -->
   <div class="section" id="api-analyze">
     <h2><span class="section-icon">&#x1F4E1;</span>POST /api/ontology/analyze</h2>
-    <p>소스 코드를 분석하여 노드, 엣지, 취약점 정보를 반환합니다.</p>
+    <p>Analyzes source code and returns nodes, edges, and vulnerability information.</p>
 
     <h3>Request</h3>
     <div class="code-block">{
@@ -771,7 +810,7 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
   <!-- ──── POST /chat ──── -->
   <div class="section" id="api-chat">
     <h2><span class="section-icon">&#x1F4AC;</span>POST /api/chat</h2>
-    <p>코드 분석 컨텍스트를 포함하여 LLM과 대화합니다. Server-Sent Events(SSE) 스트리밍 응답을 반환합니다.</p>
+    <p>Chat with an LLM including code analysis context. Returns Server-Sent Events (SSE) streaming responses.</p>
 
     <h3>Request</h3>
     <div class="code-block">{
