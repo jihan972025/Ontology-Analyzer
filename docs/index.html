@@ -784,27 +784,22 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
           <li>Ask questions about code structure, dependencies, and security issues</li>
           <li>View real-time output via streaming responses</li>
         </ol>
+
+        <h3>Example Prompts</h3>
+        <ul style="margin: 8px 0 0 16px; font-size: 13px;">
+          <li><code>Explain the circular dependencies and suggest how to fix them</code></li>
+          <li><code>What does this selected node do and why does it have high fan-out?</code></li>
+          <li><code>Summarize the overall architecture of this project</code></li>
+          <li><code>Which vulnerabilities are most critical and how do I fix them?</code></li>
+          <li><code>Is the dead code safe to remove?</code></li>
+          <li><code>What is the impact if I modify this class?</code></li>
+          <li><code>Suggest how to refactor the hub nodes to reduce complexity</code></li>
+          <li><code>Explain the SQL injection vulnerability in UserService.findByName</code></li>
+          <li><code>Which classes should I write unit tests for first?</code></li>
+          <li><code>Compare the inheritance depth across the codebase and flag any concerns</code></li>
+        </ul>
       </div>
     </div>
-
-    <h3>Example Prompts</h3>
-    <table>
-      <thead>
-        <tr><th>#</th><th>Prompt</th><th>Description</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>1</td><td><code>Explain the circular dependencies and suggest how to fix them</code></td><td>Analyzes detected cycles and recommends refactoring strategies such as Dependency Inversion or Mediator Pattern</td></tr>
-        <tr><td>2</td><td><code>What does this selected node do and why does it have high fan-out?</code></td><td>Explains the role of the currently selected node and why it depends on so many other components</td></tr>
-        <tr><td>3</td><td><code>Summarize the overall architecture of this project</code></td><td>Provides a high-level overview based on node types, clusters, and dependency relationships in the graph</td></tr>
-        <tr><td>4</td><td><code>Which vulnerabilities are most critical and how do I fix them?</code></td><td>Prioritizes detected Semgrep vulnerabilities by severity and provides specific remediation steps with code examples</td></tr>
-        <tr><td>5</td><td><code>Is the dead code safe to remove?</code></td><td>Evaluates detected dead code nodes and identifies potential false positives (entry points, event handlers, reflection)</td></tr>
-        <tr><td>6</td><td><code>What is the impact if I modify this class?</code></td><td>Analyzes the blast radius of changes to the selected node using connected nodes and fan-in metrics</td></tr>
-        <tr><td>7</td><td><code>Suggest how to refactor the hub nodes to reduce complexity</code></td><td>Identifies God Classes/Methods with high fan-in + fan-out and recommends Extract Method or responsibility separation</td></tr>
-        <tr><td>8</td><td><code>Explain the SQL injection vulnerability in UserService.findByName</code></td><td>Provides a detailed breakdown of a specific vulnerability: what it is, why it is dangerous, and how to fix it</td></tr>
-        <tr><td>9</td><td><code>Which classes should I write unit tests for first?</code></td><td>Recommends testing priorities based on complexity metrics, fan-in/out, and vulnerability counts</td></tr>
-        <tr><td>10</td><td><code>Compare the inheritance depth across the codebase and flag any concerns</code></td><td>Reviews extends chains and identifies deep inheritance hierarchies that may violate composition-over-inheritance</td></tr>
-      </tbody>
-    </table>
 
     <div class="note">
       The LLM automatically receives the current graph summary, selected node details, connected nodes, and vulnerability data as context. Select a node before asking for more targeted, node-specific answers.
