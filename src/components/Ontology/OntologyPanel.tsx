@@ -76,6 +76,8 @@ export default function OntologyPanel() {
   const [chatOpen, setChatOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { settings: llmSettings, updateProvider, setActiveProvider, getActiveConfig } = useLLMSettings()
+  const [chatPanelWidth, setChatPanelWidth] = useState(320)
+  const chatResizeRef = useRef<{ active: boolean; startX: number; startWidth: number }>({ active: false, startX: 0, startWidth: 320 })
 
   // Method trace state
   const [traceOpen, setTraceOpen] = useState(false)
@@ -146,6 +148,27 @@ export default function OntologyPanel() {
       vulnerabilities: vulnDetails,
     }
   }, [selectedNode, nodes, edges, files, folderPath, cycleCount, deadCount, vulnCount, vulnerabilities])
+
+  // Chat panel resize handlers
+  const handleChatResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    chatResizeRef.current = { active: true, startX: e.clientX, startWidth: chatPanelWidth }
+    document.body.classList.add('resizing')
+    const onMove = (ev: MouseEvent) => {
+      if (!chatResizeRef.current.active) return
+      const delta = chatResizeRef.current.startX - ev.clientX
+      const newWidth = Math.min(640, Math.max(240, chatResizeRef.current.startWidth + delta))
+      setChatPanelWidth(newWidth)
+    }
+    const onUp = () => {
+      chatResizeRef.current.active = false
+      document.body.classList.remove('resizing')
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [chatPanelWidth])
 
   const cycleIdxRef = useRef(0)
   const deadIdxRef = useRef(0)
@@ -1406,14 +1429,21 @@ export default function OntologyPanel() {
             </div>
           )}
           {chatOpen && (
-            <div className="w-80 bg-slate-900 shrink-0">
-              <ChatPanel
-                context={chatContext}
-                activeConfig={getActiveConfig()}
-                getActiveConfig={getActiveConfig}
-                onClose={() => setChatOpen(false)}
-                onOpenSettings={() => setSettingsOpen(true)}
+            <div className="flex shrink-0" style={{ width: chatPanelWidth }}>
+              {/* Drag handle */}
+              <div
+                className="w-1 hover:w-1.5 bg-slate-700 hover:bg-blue-500 cursor-col-resize transition-colors shrink-0"
+                onMouseDown={handleChatResizeStart}
               />
+              <div className="flex-1 bg-slate-900 min-w-0">
+                <ChatPanel
+                  context={chatContext}
+                  activeConfig={getActiveConfig()}
+                  getActiveConfig={getActiveConfig}
+                  onClose={() => setChatOpen(false)}
+                  onOpenSettings={() => setSettingsOpen(true)}
+                />
+              </div>
             </div>
           )}
         </div>

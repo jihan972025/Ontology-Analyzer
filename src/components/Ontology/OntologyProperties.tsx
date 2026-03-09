@@ -1,4 +1,5 @@
-import { X, FileCode, ArrowRight, Circle, ListOrdered, Zap, AlertTriangle, RefreshCw, ShieldAlert } from 'lucide-react'
+import { useState } from 'react'
+import { X, FileCode, ArrowRight, Circle, ListOrdered, Zap, AlertTriangle, RefreshCw, ShieldAlert, ChevronDown, ChevronUp } from 'lucide-react'
 import type { GraphNode, GraphEdge, Vulnerability } from './OntologyGraph'
 
 interface Props {
@@ -46,6 +47,14 @@ const EDGE_TYPE_LABELS: Record<string, string> = {
 }
 
 export default function OntologyProperties({ node, edges, allNodes, impactMap, vulnerabilities, onClose, onNavigate }: Props) {
+  const [expandedDepths, setExpandedDepths] = useState<Set<number>>(new Set())
+  const toggleDepth = (depth: number) => {
+    setExpandedDepths(prev => {
+      const next = new Set(prev)
+      next.has(depth) ? next.delete(depth) : next.add(depth)
+      return next
+    })
+  }
   const connectedEdges = edges.filter((e) => e.source === node.id || e.target === node.id)
   const nodeMap = new Map(allNodes.map((n) => [n.id, n]))
   const nodeVulns = vulnerabilities.filter(v => v.nodeId === node.id)
@@ -318,7 +327,7 @@ export default function OntologyProperties({ node, edges, allNodes, impactMap, v
                       Depth {depth} ({nodesAtDepth.length})
                     </div>
                     <div className="space-y-0.5">
-                      {nodesAtDepth.slice(0, 8).map(n => (
+                      {(expandedDepths.has(depth) ? nodesAtDepth : nodesAtDepth.slice(0, 8)).map(n => (
                         <button
                           key={n.id}
                           className="flex items-center gap-1.5 w-full text-left px-2 py-0.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white"
@@ -329,7 +338,16 @@ export default function OntologyProperties({ node, edges, allNodes, impactMap, v
                         </button>
                       ))}
                       {nodesAtDepth.length > 8 && (
-                        <div className="text-slate-600 text-[10px] px-2">+{nodesAtDepth.length - 8} more</div>
+                        <button
+                          className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-[10px] px-2 py-0.5"
+                          onClick={() => toggleDepth(depth)}
+                        >
+                          {expandedDepths.has(depth) ? (
+                            <><ChevronUp size={10} />Show less</>
+                          ) : (
+                            <><ChevronDown size={10} />+{nodesAtDepth.length - 8} more</>
+                          )}
+                        </button>
                       )}
                     </div>
                   </div>

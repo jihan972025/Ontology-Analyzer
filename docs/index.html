@@ -143,6 +143,11 @@
   .badge-purple { background: #2e1065; color: #d8b4fe; }
   .badge-slate { background: #1e293b; color: #94a3b8; }
 
+  .prompt {
+    background: #1e293b; padding: 2px 8px; border-radius: 4px; font-size: 0.9em;
+    color: #a5b4fc; font-style: italic;
+  }
+
   .kbd {
     display: inline-block; background: #1e293b; border: 1px solid #334155;
     border-radius: 4px; padding: 1px 6px; font-size: 11px; font-family: monospace;
@@ -219,6 +224,7 @@
     <div class="nav-group-title">LLM Integration</div>
     <a class="nav-link" href="#llm-providers">Providers</a>
     <a class="nav-link" href="#llm-chat">LLM Chat</a>
+    <a class="nav-link" href="#llm-chat-capabilities">Chat Capabilities</a>
   </div>
 
   <div class="nav-group">
@@ -803,6 +809,114 @@ React Frontend (Renderer)  &lt;-- HTTP --&gt;  Python FastAPI Backend (port 8766
 
     <div class="note">
       The LLM automatically receives the current graph summary, selected node details, connected nodes, and vulnerability data as context. Select a node before asking for more targeted, node-specific answers.
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <!-- ──── LLM Chat Capabilities ──── -->
+  <div class="section" id="llm-chat-capabilities">
+    <h2>LLM Chat Capabilities</h2>
+    <p>
+      LLM receives analysis context automatically, enabling the following questions and requests based on the current state:
+    </p>
+
+    <h3>1. Project-Wide Analysis Questions</h3>
+    <p>
+      <strong>Context sent to LLM:</strong> Total nodes, edges, circular dependency count, dead code count, vulnerability count, file count, node type breakdown
+    </p>
+    <ul>
+      <li><span class="prompt">"What are the structural problems in this project?"</span></li>
+      <li><span class="prompt">"There are N circular dependencies — how do I resolve them?"</span></li>
+      <li><span class="prompt">"There are N dead code items — how should I clean them up?"</span></li>
+    </ul>
+
+    <h3>2. Selected Node Deep Analysis</h3>
+    <p>
+      <strong>When a node is clicked</strong> on the graph, the following info is sent to LLM: name, type, file, line, fan-in/fan-out, dead code status
+    </p>
+    <ul>
+      <li><span class="prompt">"What is the role of this method?"</span></li>
+      <li><span class="prompt">"Fan-in is high — how should I refactor?"</span></li>
+      <li><span class="prompt">"Explain the dependencies of this class"</span></li>
+    </ul>
+
+    <h3>3. Connection (Dependency) Analysis</h3>
+    <p>
+      <strong>Context sent:</strong> incoming/outgoing connection info of the selected node (up to 20 connections)
+    </p>
+    <ul>
+      <li><span class="prompt">"What is affected if I modify this class?"</span></li>
+      <li><span class="prompt">"Where is this method called from?"</span></li>
+      <li><span class="prompt">"How can I reduce dependencies?"</span></li>
+    </ul>
+
+    <h3>4. Vulnerability Analysis &amp; Fix Guide</h3>
+    <p>
+      <strong>When Vulnerability Scan is enabled:</strong> Semgrep scan results are sent to LLM — rule, severity, message, file, line, related node
+    </p>
+    <ul>
+      <li><span class="prompt">"Why is this vulnerability dangerous?"</span></li>
+      <li><span class="prompt">"Show me the specific fix code"</span></li>
+      <li><span class="prompt">"Explain from the most critical vulnerability first"</span></li>
+    </ul>
+
+    <h3>5. Refactoring Strategy</h3>
+    <p>Ask for prioritized refactoring plans based on complexity metrics and dependency analysis.</p>
+    <ul>
+      <li><span class="prompt">"Prioritize refactoring targets in this project"</span></li>
+      <li><span class="prompt">"How do I split the class with the highest Fan-out?"</span></li>
+      <li><span class="prompt">"This looks like a God Class — how to decompose it?"</span></li>
+    </ul>
+
+    <h3>6. Architecture Review</h3>
+    <p>Evaluate overall project structure using node types, dependency directions, and layer information.</p>
+    <ul>
+      <li><span class="prompt">"Is the layered architecture of this project appropriate?"</span></li>
+      <li><span class="prompt">"Does it follow the MVC pattern correctly?"</span></li>
+      <li><span class="prompt">"Are the package dependency directions correct?"</span></li>
+    </ul>
+
+    <h3>7. Test Strategy</h3>
+    <p>Get recommendations on which components to test first based on Fan-in, Fan-out, and connectivity.</p>
+    <ul>
+      <li><span class="prompt">"Which class should I write unit tests for first?"</span></li>
+      <li><span class="prompt">"How to test a utility class with high Fan-in?"</span></li>
+      <li><span class="prompt">"What is the test strategy for modules with circular deps?"</span></li>
+    </ul>
+
+    <h3>8. Code Quality Improvement</h3>
+    <p>Discuss specific quality issues detected in the analysis results.</p>
+    <ul>
+      <li><span class="prompt">"This method is 120 lines — how to split it?"</span></li>
+      <li><span class="prompt">"Inheritance depth is 4 levels — is that a problem?"</span></li>
+      <li><span class="prompt">"Which design pattern should I apply to reduce hub nodes?"</span></li>
+    </ul>
+
+    <h3>9. Vulnerability Fix Code Generation</h3>
+    <p>When Vulnerability Scan is active, ask for specific fix code for each detected vulnerability.</p>
+    <ul>
+      <li><span class="prompt">"Write PreparedStatement fix code for the SQL Injection"</span></li>
+      <li><span class="prompt">"Show output encoding code to prevent XSS"</span></li>
+      <li><span class="prompt">"Convert hardcoded passwords to environment variables"</span></li>
+    </ul>
+
+    <h3>10. Multi-Turn Deep Analysis</h3>
+    <p>Continue the conversation to progressively deepen the analysis. Chat history is maintained within the session.</p>
+    <ul>
+      <li><span class="prompt">Turn 1: "Summarize the project structure"</span></li>
+      <li><span class="prompt">Turn 2: "Which part is the most problematic?"</span></li>
+      <li><span class="prompt">Turn 3: "Show me the specific fix code for that"</span></li>
+      <li><span class="prompt">Turn 4: "What should I test after making that change?"</span></li>
+    </ul>
+
+    <div class="warning">
+      <strong>Current Limitations:</strong>
+      <ul style="margin: 8px 0 0 16px;">
+        <li>Source code content is NOT sent to LLM (only structural metadata)</li>
+        <li>Improvement Suggestions are NOT included in LLM context</li>
+        <li>Chat history is kept in memory only (cleared when app closes)</li>
+      </ul>
     </div>
   </div>
 
