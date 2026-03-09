@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/ontology", tags=["ontology"])
 class AnalyzeRequest(BaseModel):
     path: str
     files: Optional[list[str]] = None
+    scanVuln: bool = False
 
 
 class OntologyNode(BaseModel):
@@ -71,8 +72,8 @@ _JAVA_CLASS_RE = re.compile(
     r"(?:\s+implements\s+([\w,\s]+))?"
 )
 _JAVA_METHOD_RE = re.compile(
-    r"(?:public|protected|private|static|final|abstract|synchronized|native|\s)+"
-    r"[\w<>\[\],\s]+\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{"
+    r"(?:(?:public|protected|private|static|final|abstract|synchronized|native)\s+)*"
+    r"[\w<>\[\],]+(?:\s+[\w<>\[\],]+)*\s+(\w+)\s*\([^)]*\)\s*(?:throws\s+\w[\w.,\s]*?)?\s*\{"
 )
 _JAVA_CALL_RE = re.compile(r"\b(\w+)\s*\(")
 _JAVA_IMPORT_RE = re.compile(r"import\s+(?:static\s+)?([\w.]+)\s*;")
@@ -1199,9 +1200,15 @@ def _get_rules_file() -> str:
     return rules_file
 
 
-def _run_semgrep_sync(scan_path: str, timeout: float = 120) -> dict:
-    """Run semgrep synchronously (called via asyncio.to_thread)."""
+def _run_semgrep_sync(scan_path: str, timeout: float = 60,
+                      file_targets: list[str] | None = None) -> dict:
+    """Run semgrep synchronously (called via asyncio.to_thread).
+
+    If *file_targets* is given, scan only those files instead of the
+    whole *scan_path* directory.
+    """
     import subprocess as sp
+    import signal
 
     semgrep_bin = _find_semgrep()
     rules_file = _get_rules_file()
@@ -1220,23 +1227,36 @@ def _run_semgrep_sync(scan_path: str, timeout: float = 120) -> dict:
         "--exclude", "build",
         "--exclude", "target",
         "--exclude", ".claude",
-        scan_path,
     ]
+
+    if file_targets:
+        cmd.extend(file_targets)
+    else:
+        cmd.append(scan_path)
 
     logger.info("Semgrep binary: %s", semgrep_bin)
     logger.info("Semgrep rules:  %s", rules_file)
-    logger.info("Semgrep scan:   %s", scan_path)
-    logger.info("Semgrep cmd:    %s", " ".join(cmd))
+    logger.info("Semgrep scan:   %s (%d file targets)",
+                scan_path, len(file_targets) if file_targets else 0)
 
+    # On Windows, create a new process group so we can kill the entire
+    # tree (semgrep spawns child processes like semgrep-core).
+    kwargs: dict = {}
+    if os.name == "nt":
+        kwargs["creationflags"] = sp.CREATE_NEW_PROCESS_GROUP
+
+    proc = None
     try:
-        result = sp.run(
+        proc = sp.Popen(
             cmd,
-            capture_output=True,
-            timeout=timeout,
+            stdout=sp.PIPE,
+            stderr=sp.PIPE,
             text=True,
             encoding="utf-8",
             errors="replace",
+            **kwargs,
         )
+        out, err = proc.communicate(timeout=timeout)
     except FileNotFoundError:
         raise RuntimeError(
             "Semgrep is not installed. "
@@ -1244,11 +1264,21 @@ def _run_semgrep_sync(scan_path: str, timeout: float = 120) -> dict:
             "Then restart the application."
         )
     except sp.TimeoutExpired:
+        if proc is not None:
+            try:
+                if os.name == "nt":
+                    sp.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                           capture_output=True, timeout=10)
+                else:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except Exception:
+                proc.kill()
+            proc.wait(timeout=5)
         raise RuntimeError(f"Semgrep scan timed out after {timeout}s")
 
-    out = result.stdout or ""
-    err = (result.stderr or "").strip()
-    rc = result.returncode
+    out = out or ""
+    err = (err or "").strip()
+    rc = proc.returncode
 
     logger.info(
         "Semgrep finished: exit=%d, stdout=%d bytes, stderr=%d bytes",
@@ -1280,9 +1310,10 @@ def _run_semgrep_sync(scan_path: str, timeout: float = 120) -> dict:
     return data
 
 
-async def _run_semgrep(scan_path: str, timeout: float = 120) -> dict:
+async def _run_semgrep(scan_path: str, timeout: float = 60,
+                       file_targets: list[str] | None = None) -> dict:
     """Run semgrep scan asynchronously and return parsed JSON output."""
-    return await asyncio.to_thread(_run_semgrep_sync, scan_path, timeout)
+    return await asyncio.to_thread(_run_semgrep_sync, scan_path, timeout, file_targets)
 
 
 def _parse_semgrep_results(
@@ -1374,9 +1405,11 @@ MAX_FILES = 500
 MAX_FILE_SIZE = 512 * 1024  # 512 KB
 
 
-async def _scan_and_parse(root: str, file_list: list[str] | None = None):
+async def _scan_and_parse(root: str, file_list: list[str] | None = None,
+                          scan_vuln: bool = False):
     nodes: dict[str, OntologyNode] = {}
     edges: list[OntologyEdge] = []
+    parsed_files: list[str] = []  # Track files for targeted Semgrep scan
     file_content_cache: dict[str, str] = {}  # rel_path → file content (for dead-code decorator check)
     file_count = 0
 
@@ -1402,6 +1435,7 @@ async def _scan_and_parse(root: str, file_list: list[str] | None = None):
             file_count += 1
             if file_count > MAX_FILES:
                 break
+            parsed_files.append(filepath)
             rel = os.path.relpath(filepath, root).replace("\\", "/")
             _read_and_cache(filepath, rel)
             if ext == ".java":
@@ -1428,6 +1462,7 @@ async def _scan_and_parse(root: str, file_list: list[str] | None = None):
                 if file_count > MAX_FILES:
                     break
 
+                parsed_files.append(filepath)
                 rel = os.path.relpath(filepath, root).replace("\\", "/")
                 _read_and_cache(filepath, rel)
 
@@ -1455,16 +1490,19 @@ async def _scan_and_parse(root: str, file_list: list[str] | None = None):
     _detect_cycles(nodes, unique_edges)
     _detect_dead_code(nodes, unique_edges, file_content_cache)
 
-    # Semgrep scan — non-fatal: graph is returned even if scan fails
+    # Semgrep scan — only when scan_vuln is True.
     vulnerabilities: list[Vulnerability] = []
     vuln_error: str | None = None
-    try:
-        semgrep_output = await _run_semgrep(root)
-        vulnerabilities = _parse_semgrep_results(semgrep_output, root, nodes)
-        logger.info("Vulnerability scan complete: %d issues found", len(vulnerabilities))
-    except Exception as e:
-        vuln_error = str(e)
-        logger.warning("Semgrep scan failed (%s): %s", type(e).__name__, vuln_error)
+    if scan_vuln:
+        try:
+            semgrep_output = await _run_semgrep(root, file_targets=parsed_files or None)
+            vulnerabilities = _parse_semgrep_results(semgrep_output, root, nodes)
+            logger.info("Vulnerability scan complete: %d issues found", len(vulnerabilities))
+        except Exception as e:
+            vuln_error = str(e)
+            logger.warning("Semgrep scan failed (%s): %s", type(e).__name__, vuln_error)
+    else:
+        logger.info("Vulnerability scan skipped (scanVuln=false)")
 
     # Generate improvement suggestions based on all analysis results
     suggestions = _generate_suggestions(nodes, unique_edges, vulnerabilities)
@@ -1482,7 +1520,9 @@ async def analyze_ontology(req: AnalyzeRequest):
     folder = req.path
     if not os.path.isdir(folder):
         raise HTTPException(status_code=400, detail=f"Not a directory: {folder}")
-    nodes, edges, vulnerabilities, vuln_error, suggestions = await _scan_and_parse(folder, req.files)
+    nodes, edges, vulnerabilities, vuln_error, suggestions = await _scan_and_parse(
+        folder, req.files, scan_vuln=req.scanVuln,
+    )
     result = {
         "nodes": [n.model_dump() for n in nodes],
         "edges": [e.model_dump() for e in edges],
@@ -1492,6 +1532,138 @@ async def analyze_ontology(req: AnalyzeRequest):
     if vuln_error:
         result["vulnError"] = vuln_error
     return result
+
+
+@router.post("/analyze-stream")
+async def analyze_ontology_stream(req: AnalyzeRequest):
+    """Streaming version of /analyze that sends NDJSON progress events."""
+    from starlette.responses import StreamingResponse
+
+    folder = req.path
+    if not os.path.isdir(folder):
+        raise HTTPException(status_code=400, detail=f"Not a directory: {folder}")
+
+    _SKIP = frozenset((
+        "node_modules", "__pycache__", "venv", ".venv", "build",
+        "dist", "target", "bin", "obj", ".git", ".idea",
+    ))
+
+    def _collect(root, flist):
+        result, count = [], 0
+        if flist:
+            for fp in flist:
+                fp = fp.replace("\\", "/")
+                ext = os.path.splitext(fp)[1].lower()
+                if ext not in SUPPORTED_EXTENSIONS or not os.path.isfile(fp):
+                    continue
+                if os.path.getsize(fp) > MAX_FILE_SIZE:
+                    continue
+                count += 1
+                if count > MAX_FILES:
+                    break
+                result.append((fp, ext, os.path.relpath(fp, root).replace("\\", "/")))
+        else:
+            for dp, dns, fns in os.walk(root):
+                dns[:] = [d for d in dns if not d.startswith(".") and d not in _SKIP]
+                for fn in fns:
+                    ext = os.path.splitext(fn)[1].lower()
+                    if ext not in SUPPORTED_EXTENSIONS:
+                        continue
+                    fp = os.path.join(dp, fn)
+                    if os.path.getsize(fp) > MAX_FILE_SIZE:
+                        continue
+                    count += 1
+                    if count > MAX_FILES:
+                        break
+                    result.append((fp, ext, os.path.relpath(fp, root).replace("\\", "/")))
+                if count > MAX_FILES:
+                    break
+        return result
+
+    def _parse_batch(batch, nodes, edges, cache):
+        for fp, ext, rel in batch:
+            try:
+                with open(fp, "r", encoding="utf-8", errors="ignore") as f:
+                    cache[rel] = f.read()
+            except Exception:
+                pass
+            try:
+                if ext == ".java":
+                    _parse_java(fp, nodes, edges, rel)
+                else:
+                    _parse_generic(fp, nodes, edges, rel)
+            except Exception:
+                logger.warning("Skipping file due to parse error: %s", fp)
+
+    def _graph_analysis(nodes, edges, cache):
+        seen, unique = set(), []
+        for e in edges:
+            key = (e.source, e.target, e.type)
+            if key not in seen:
+                seen.add(key)
+                if e.source in nodes and e.target in nodes:
+                    unique.append(e)
+        _compute_sizes(nodes, unique)
+        _detect_communities(nodes, unique)
+        _detect_cycles(nodes, unique)
+        _detect_dead_code(nodes, unique, cache)
+        return unique
+
+    async def generate():
+        def _emit(typ, **kw):
+            return json.dumps({"type": typ, **kw}) + "\n"
+
+        yield _emit("progress", percent=5, message="Collecting files...")
+        collected = await asyncio.to_thread(_collect, folder, req.files)
+        total = len(collected)
+        yield _emit("progress", percent=10, message=f"Found {total} files")
+
+        nodes: dict[str, OntologyNode] = {}
+        edges: list[OntologyEdge] = []
+        parsed_files: list[str] = []
+        cache: dict[str, str] = {}
+
+        if total > 0:
+            bs = max(1, total // 15)
+            for i in range(0, total, bs):
+                batch = collected[i:i + bs]
+                await asyncio.to_thread(_parse_batch, batch, nodes, edges, cache)
+                parsed_files.extend(fp for fp, _, _ in batch)
+                done = min(i + bs, total)
+                yield _emit("progress", percent=10 + int((done / total) * 60),
+                            message=f"Parsing files ({done}/{total})...")
+
+        yield _emit("progress", percent=75, message="Analyzing graph structure...")
+        unique_edges = await asyncio.to_thread(_graph_analysis, nodes, edges, cache)
+        yield _emit("progress", percent=85, message="Graph analysis complete")
+
+        vulns: list[Vulnerability] = []
+        vuln_error = None
+        if req.scanVuln:
+            yield _emit("progress", percent=88, message="Scanning vulnerabilities...")
+            try:
+                so = await _run_semgrep(folder, file_targets=parsed_files or None)
+                vulns = _parse_semgrep_results(so, folder, nodes)
+            except Exception as e:
+                vuln_error = str(e)
+
+        suggestions = _generate_suggestions(nodes, unique_edges, vulns)
+        yield _emit("progress", percent=100, message="Complete")
+
+        result: dict = {
+            "type": "result",
+            "data": {
+                "nodes": [n.model_dump() for n in nodes.values()],
+                "edges": [e.model_dump() for e in unique_edges],
+                "vulnerabilities": [v.model_dump() for v in vulns],
+                "suggestions": [s.model_dump() for s in suggestions],
+            },
+        }
+        if vuln_error:
+            result["data"]["vulnError"] = vuln_error
+        yield json.dumps(result) + "\n"
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 
 class CodePreviewRequest(BaseModel):

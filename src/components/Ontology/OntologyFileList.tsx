@@ -1,4 +1,4 @@
-import { FolderOpen, FileCode, ChevronRight, ChevronDown, Search, ChevronUp, Files, FilePlus2, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
+import { FolderOpen, FileCode, ChevronRight, ChevronDown, Search, ChevronUp, Files, FilePlus2, ChevronsDownUp, ChevronsUpDown, ShieldAlert, XCircle } from 'lucide-react'
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 
 interface FileEntry {
@@ -10,8 +10,12 @@ interface Props {
   folderPath: string
   files: FileEntry[]
   loading: boolean
+  progress: { percent: number; message: string } | null
   highlightFile: string | null
   hasSelectedFiles: boolean
+  scanVuln: boolean
+  onScanVulnChange: (value: boolean) => void
+  onCancel?: () => void
   multiSelectedFiles?: Set<string>
   onSelectFolder: () => void
   onSelectFiles: () => void
@@ -170,8 +174,12 @@ export default function OntologyFileList({
   folderPath,
   files,
   loading,
+  progress,
   highlightFile,
   hasSelectedFiles,
+  scanVuln,
+  onScanVulnChange,
+  onCancel,
   multiSelectedFiles,
   onSelectFolder,
   onSelectFiles,
@@ -278,6 +286,30 @@ export default function OntologyFileList({
             </div>
           )}
         </div>
+
+        {/* Vulnerability scan checkbox */}
+        <label className="flex items-center gap-2 mt-2 px-1 cursor-pointer select-none group">
+          <span
+            role="checkbox"
+            aria-checked={scanVuln}
+            onClick={() => onScanVulnChange(!scanVuln)}
+            className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+              scanVuln
+                ? 'bg-rose-500 border-rose-500'
+                : 'bg-gray-600 border-gray-500'
+            }`}
+          >
+            {scanVuln && (
+              <svg viewBox="0 0 12 12" className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 6l3 3 5-5" />
+              </svg>
+            )}
+          </span>
+          <ShieldAlert size={13} className={scanVuln ? 'text-rose-400' : 'text-slate-500'} />
+          <span className={`text-xs ${scanVuln ? 'text-rose-300' : 'text-slate-500 group-hover:text-slate-400'}`}>
+            Vulnerability Scan
+          </span>
+        </label>
       </div>
 
       {/* Search + Expand/Collapse */}
@@ -307,9 +339,41 @@ export default function OntologyFileList({
       {/* File tree */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-xs text-slate-500">
-            <div className="animate-spin w-4 h-4 border-2 border-angel-500 border-t-transparent rounded-full mr-2" />
-            Analyzing...
+          <div className="flex flex-col items-center justify-center h-32 gap-3 px-4">
+            {progress ? (
+              <>
+                {/* Percentage */}
+                <span className="text-sm font-semibold text-angel-400">
+                  {progress.percent}%
+                </span>
+                {/* Progress bar */}
+                <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-angel-600 to-angel-400 transition-all duration-300 ease-out"
+                    style={{ width: `${progress.percent}%` }}
+                  />
+                </div>
+                {/* Status message */}
+                <span className="text-xs text-slate-400 truncate w-full text-center">
+                  {progress.message}
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="animate-spin w-4 h-4 border-2 border-angel-500 border-t-transparent rounded-full" />
+                <span className="text-xs text-slate-500">Analyzing...</span>
+              </>
+            )}
+            {/* Cancel button */}
+            {onCancel && (
+              <button
+                onClick={onCancel}
+                className="flex items-center gap-1 px-3 py-1 rounded bg-slate-700 hover:bg-red-600/80 text-slate-300 hover:text-white text-xs transition-colors"
+              >
+                <XCircle size={12} />
+                <span>Cancel</span>
+              </button>
+            )}
           </div>
         ) : files.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-xs text-slate-500">

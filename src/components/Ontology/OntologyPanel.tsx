@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import OntologyGraph, { type GraphNode, type GraphEdge, type GraphHandle, type LayoutMode, type Vulnerability } from './OntologyGraph'
 import OntologyFileList from './OntologyFileList'
 import OntologyProperties from './OntologyProperties'
-import { analyzeOntology, listOntologyFiles, getCodePreview } from '../../api/client'
+import { analyzeOntologyStream, listOntologyFiles, getCodePreview } from '../../api/client'
 import { ZoomIn, ZoomOut, Search, Download, GitBranch, AlertTriangle, Ghost, RefreshCw, Locate, ShieldAlert, BookOpen, X, Route, Lightbulb, Network, Layers, ChevronDown, ChevronRight, Copy, Waypoints, PanelLeftClose, PanelLeftOpen, MessageSquare, Settings, FileCode } from 'lucide-react'
 import ChatPanel from '../LLM/ChatPanel'
 import LLMSettingsModal from '../LLM/LLMSettingsModal'
@@ -50,6 +50,9 @@ export default function OntologyPanel() {
   const [hoverInfo, setHoverInfo] = useState<{ node: GraphNode; x: number; y: number; code?: string } | null>(null)
   const hoverTimerRef = useRef<number>(0)
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([])
+  const [scanVuln, setScanVuln] = useState(false)
+  const [progress, setProgress] = useState<{ percent: number; message: string } | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [suggestionFilter, setSuggestionFilter] = useState<string>('all')
@@ -347,9 +350,15 @@ export default function OntologyPanel() {
   }, [])
 
   const loadFolder = useCallback(async (folder: string, files?: string[]) => {
+    // Abort any in-flight analysis
+    if (abortRef.current) abortRef.current.abort()
+    const ac = new AbortController()
+    abortRef.current = ac
+
     setFolderPath(files ? `${files.length} files selected` : folder)
     setError(null)
     setLoading(true)
+    setProgress(null)
     setSelectedNode(null)
     setHighlightFile(null)
     setShowManualInput(false)
@@ -358,7 +367,9 @@ export default function OntologyPanel() {
     try {
       const [fileResult, graphResult] = await Promise.all([
         listOntologyFiles(folder, files),
-        analyzeOntology(folder, files),
+        analyzeOntologyStream(folder, files, scanVuln, (percent, message) => {
+          setProgress({ percent, message })
+        }, ac.signal),
       ])
 
       setFiles(fileResult.files)
@@ -388,10 +399,23 @@ export default function OntologyPanel() {
         setError(graphResult.vulnError)
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') return  // cancelled by user
       setError(err.message || 'Failed to analyze folder')
     } finally {
-      setLoading(false)
+      if (!ac.signal.aborted) {
+        setLoading(false)
+        setProgress(null)
+      }
     }
+  }, [scanVuln])
+
+  const handleCancelAnalysis = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+      abortRef.current = null
+    }
+    setLoading(false)
+    setProgress(null)
   }, [])
 
   const computeCommonDir = useCallback((filePaths: string[]) => {
@@ -656,8 +680,12 @@ export default function OntologyPanel() {
           folderPath={folderPath}
           files={files}
           loading={loading}
+          progress={progress}
           highlightFile={highlightFile}
           hasSelectedFiles={selectedFilePaths.length > 0}
+          scanVuln={scanVuln}
+          onScanVulnChange={setScanVuln}
+          onCancel={handleCancelAnalysis}
           multiSelectedFiles={mermaidOpen ? mermaidSelectedFiles : undefined}
           onSelectFolder={handleSelectFolder}
           onSelectFiles={handleSelectFiles}
